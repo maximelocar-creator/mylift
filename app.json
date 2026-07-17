@@ -43,9 +43,11 @@
       ]
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "REMPLACE_APRES_EAS_INIT"
+        "projectId": "4ffd6bf8-e0ac-4b5d-b2f8-3435942a37b2"
       }
-    }
+    },
+    "owner": "maxlocar"
   }
 }
