@@ -16,7 +16,7 @@ import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
 import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
-import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4 } from "../ui/kit";
+import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
 
 /* ==================================================================== */
 /* Chrono global de séance                                              */
@@ -354,6 +354,11 @@ export default function SessionLive({
   const [lwbPR, setLwbPR] = useState<Any | null>(null);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [updateTargetOpen, setUpdateTargetOpen] = useState<Any | null>(null);
+  // Dépassement de cible détecté PENDANT une célébration PR : on le met en
+  // attente et on ne présente la ConfirmSheet qu'après fermeture de la Modal
+  // PR (présenter 2 Modals dans le même tick échoue SILENCIEUSEMENT sur iOS
+  // et peut geler l'écran — piège documenté dans CLAUDE.md).
+  const pendingTargetRef = useRef<Any | null>(null);
   const [switchVariantConfirm, setSwitchVariantConfirm] = useState<Any | null>(null);
   const [finishBlocked, setFinishBlocked] = useState<Any | null>(null);
   const [noteHeaderVisible, setNoteHeaderVisible] = useState(!!session.sessionNote);
@@ -556,10 +561,6 @@ export default function SessionLive({
 
     const prs = computePRsForSet(newExos[exIdx], setIdx, journalLogs);
     haptic("success");
-    if (prs.length) {
-      haptic("heavy");
-      setLwbPR(prs[0]);
-    }
     // Le timer ne démarre JAMAIS automatiquement (décision verrouillée v40).
 
     // Popup dépassement de cible (cible effective = modelTargets si modèle actif)
@@ -573,8 +574,19 @@ export default function SessionLive({
         targetModelId = ex.activeModelId;
       }
     }
-    if (!isNaN(w) && !isNaN(effectiveTarget) && effectiveTarget > 0 && w > effectiveTarget) {
-      setUpdateTargetOpen({ exIdx, newWeight: w, oldTarget: effectiveTarget, targetModelId, exId: ex.exId });
+    const exceed =
+      !isNaN(w) && !isNaN(effectiveTarget) && effectiveTarget > 0 && w > effectiveTarget
+        ? { exIdx, newWeight: w, oldTarget: effectiveTarget, targetModelId, exId: ex.exId }
+        : null;
+
+    if (prs.length) {
+      haptic("heavy");
+      // PR + dépassement en même temps (cas fréquent) : la cible attend la
+      // fermeture de la Modal PR — jamais deux Modals dans le même tick.
+      pendingTargetRef.current = exceed;
+      setLwbPR(prs[0]);
+    } else if (exceed) {
+      setUpdateTargetOpen(exceed);
     }
   };
 
@@ -719,7 +731,17 @@ export default function SessionLive({
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
-      <LWBOverlay pr={lwbPR} onClose={() => setLwbPR(null)} />
+      <LWBOverlay
+        pr={lwbPR}
+        onClose={() => {
+          setLwbPR(null);
+          const pending = pendingTargetRef.current;
+          pendingTargetRef.current = null;
+          // Laisse l'animation de fermeture de la Modal PR se terminer avant
+          // de présenter la ConfirmSheet (afterSheetClose = piège iOS)
+          if (pending) afterSheetClose(() => setUpdateTargetOpen(pending));
+        }}
+      />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">

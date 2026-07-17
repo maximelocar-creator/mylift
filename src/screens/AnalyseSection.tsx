@@ -29,7 +29,7 @@ export default function AnalyseSection() {
   const periodDays = period === "all" ? 99999 : parseInt(period);
 
   // Un seul point de calcul, partagé avec le Dashboard (src/lib/stats.ts)
-  const { summary, muscleRanked, tonnagePts, totalTonnage, tonnageDeltaPct } = usePeriodStats(periodDays);
+  const { summary, muscleRanked } = usePeriodStats(periodDays);
 
   const periodLabel =
     period === "7" ? "7 jours" : period === "30" ? "30 jours" : period === "90" ? "90 jours" : period === "365" ? "1 an" : "tout l'historique";
@@ -212,28 +212,8 @@ export default function AnalyseSection() {
         ]}
       />
 
-      {/* Tonnage */}
-      <Card style={{ marginBottom: 10 }}>
-        <Label>Tonnage cumulé · {periodLabel}</Label>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4, marginBottom: 4 }}>
-          <Text style={[mono, { fontSize: 28, fontWeight: "800", color: C.ink0 }]}>
-            {formatNum(totalTonnage / 1000, 1)}
-            <Text style={{ fontSize: 14, color: C.ink2, fontWeight: "500" }}> t</Text>
-          </Text>
-        </View>
-        {tonnageDeltaPct !== null && (
-          <Text style={[mono, { fontSize: 11, fontWeight: "700", marginBottom: 8, color: tonnageDeltaPct > 0 ? C.success : C.ink3 }]}>
-            {(tonnageDeltaPct > 0 ? "▲ +" : tonnageDeltaPct < 0 ? "▼ " : "") + Math.abs(tonnageDeltaPct).toFixed(0)}% vs période précédente
-          </Text>
-        )}
-        {tonnagePts.length > 0 ? (
-          <TonnageBars points={tonnagePts} />
-        ) : (
-          <Text style={{ color: C.ink3, textAlign: "center", padding: 20 }}>Aucune séance sur cette période</Text>
-        )}
-      </Card>
-
-      {/* Surcharge progressive */}
+      {/* Surcharge progressive (tonnage retiré de cette vue — demande Maxime,
+          il reste visible sur le Dashboard) */}
       <SectionLabel right={`${summary.up}/${summary.total} en progression`}>Surcharge progressive</SectionLabel>
 
       <Segment

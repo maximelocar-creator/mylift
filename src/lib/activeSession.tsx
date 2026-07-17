@@ -7,7 +7,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { hydrateSessionExos, todayIso, type Any } from "../core/mylift";
 import { uid } from "../db/repo";
 
-const KEY = "mylift_active_session";
+// Clé PAR COMPTE : une séance en cours ne doit jamais suivre un changement
+// d'utilisateur sur le même téléphone (bug vécu : la séance de maxlocar
+// restait active sur le compte de test).
+const keyFor = (userId: string) => "mylift_active_session:" + userId;
 
 type ActiveSessionCtx = {
   activeSession: Any | null;
@@ -23,23 +26,38 @@ export function useActiveSession(): ActiveSessionCtx {
   return v;
 }
 
-export function ActiveSessionProvider({ children }: { children: ReactNode }) {
+export function ActiveSessionProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [activeSession, setActiveSessionState] = useState<Any | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY)
+    // Changement de compte (ou logout) : purge l'état en mémoire puis charge
+    // la séance du compte courant uniquement
+    setActiveSessionState(null);
+    setLoaded(false);
+    if (!userId) {
+      setLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    AsyncStorage.getItem(keyFor(userId))
       .then((v) => {
-        if (v) setActiveSessionState(JSON.parse(v));
+        if (v && !cancelled) setActiveSessionState(JSON.parse(v));
       })
       .catch(() => {})
-      .finally(() => setLoaded(true));
-  }, []);
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const setActiveSession = (s: Any | null) => {
     setActiveSessionState(s);
-    if (s) AsyncStorage.setItem(KEY, JSON.stringify(s)).catch(() => {});
-    else AsyncStorage.removeItem(KEY).catch(() => {});
+    if (!userId) return;
+    if (s) AsyncStorage.setItem(keyFor(userId), JSON.stringify(s)).catch(() => {});
+    else AsyncStorage.removeItem(keyFor(userId)).catch(() => {});
   };
 
   return <Ctx.Provider value={{ activeSession, setActiveSession, loaded }}>{children}</Ctx.Provider>;

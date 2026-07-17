@@ -74,7 +74,7 @@ export default function RootLayout() {
             routes protégées — un provider conditionnel ferait crasher les hooks. */}
         <DataProvider userId={session?.user.id ?? null}>
           <SocialProvider userId={session?.user.id ?? null}>
-            <ActiveSessionProvider>{stack}</ActiveSessionProvider>
+            <ActiveSessionProvider userId={session?.user.id ?? null}>{stack}</ActiveSessionProvider>
           </SocialProvider>
         </DataProvider>
       </View>

@@ -125,14 +125,23 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
       // logout/login) → wipe complet : jamais de résidus d'un autre utilisateur,
       // ni de queue de sync bloquée par la RLS du nouveau compte.
       const owner = await getMeta("db_owner");
+      const switched = owner !== userId; // premier login sur ce device inclus
       if (owner && owner !== userId) await resetLocalDb();
       await setMeta("db_owner", userId);
       setRedoOnboarding((await AsyncStorage.getItem(redoOnboardingKey(userId))) === "1");
       // 1. Affiche immédiatement les données locales (offline-first)
       await loadFromLocal();
-      setReady(true);
-      // 2. Sync serveur en arrière-plan, puis re-render si pull effectué
-      backgroundSync();
+      if (switched) {
+        // Miroir local vide/neuf : attendre le pull AVANT ready, sinon la
+        // garde d'onboarding voit "pas de username" et renvoie à tort un
+        // compte existant vers l'onboarding (bug vécu au retour de maxlocar).
+        await backgroundSync();
+        setReady(true);
+      } else {
+        setReady(true);
+        // 2. Sync serveur en arrière-plan, puis re-render si pull effectué
+        backgroundSync();
+      }
     })();
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") backgroundSync();
