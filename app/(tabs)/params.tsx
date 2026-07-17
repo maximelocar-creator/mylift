@@ -11,9 +11,15 @@ import { useData } from "@/lib/store";
 import { useActiveSession } from "@/lib/activeSession";
 import { supabase } from "@/lib/supabase";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
-import { Sheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
+
+// Couleurs de machine (mêmes clés que v40)
+const MODEL_COLOR_HEX: Record<string, string> = {
+  coral: "#FC4C02", blue: "#378ADD", green: "#639922", purple: "#7F77DD",
+  amber: "#EF9F27", pink: "#D4537E", teal: "#1D9E75",
+};
 
 export default function Params() {
   const insets = useSafeAreaInsets();
@@ -34,6 +40,8 @@ export default function Params() {
   const [modelExo, setModelExo] = useState<Any | null>(null);
   const [newModelName, setNewModelName] = useState("");
   const [newModelSetting, setNewModelSetting] = useState("");
+  const [editModel, setEditModel] = useState<Any | null>(null); // {id, name, setting, color}
+  const [deleteModelConfirm, setDeleteModelConfirm] = useState<Any | null>(null);
 
   const groups = muscleGroups.length ? muscleGroups : MUSCLE_GROUPS_DEFAULT;
   const currentProgram = useMemo(() => programs.find((p) => p.id === profile?.currentProgramId) || programs[0] || null, [programs, profile]);
@@ -308,12 +316,99 @@ export default function Params() {
           <View>
             {(modelExo.models || []).length > 0 && (
               <View style={{ gap: 4, marginBottom: 14 }}>
-                {(modelExo.models || []).map((m: Any) => (
-                  <View key={m.id} style={{ padding: 10, backgroundColor: C.bg3, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: C.ink0 }}>{m.name}</Text>
-                    {!!m.setting && <Text style={{ fontSize: 11, color: C.ink3, fontStyle: "italic", marginTop: 1 }}>{m.setting}</Text>}
-                  </View>
-                ))}
+                {(modelExo.models || []).map((m: Any) => {
+                  const em = editModel;
+                  const isEditing = em?.id === m.id;
+                  const hex = MODEL_COLOR_HEX[m.color || "coral"] || MODEL_COLOR_HEX.coral;
+                  if (!isEditing || !em) {
+                    // Géométrie stable : hauteur fixe, le setting change le contenu, pas la ligne
+                    return (
+                      <Pressable
+                        key={m.id}
+                        onPress={() => setEditModel({ id: m.id, name: m.name, setting: m.setting || "", color: m.color || "coral" })}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          paddingHorizontal: 12,
+                          height: 56,
+                          backgroundColor: C.bg3,
+                          borderRadius: 10,
+                        }}
+                      >
+                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: hex }} />
+                        <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+                          <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "700", color: C.ink0 }}>
+                            {m.name}
+                          </Text>
+                          <Text numberOfLines={1} style={{ fontSize: 11, color: C.ink3, fontStyle: m.setting ? "italic" : "normal", marginTop: 1 }}>
+                            {m.setting || "aucun réglage"}
+                          </Text>
+                        </View>
+                        <Ionicons name="pencil" size={13} color={C.ink3} />
+                      </Pressable>
+                    );
+                  }
+                  return (
+                    <View key={m.id} style={{ padding: 12, backgroundColor: C.bg3, borderRadius: 10, borderWidth: 1, borderColor: "rgba(252,76,2,.35)", gap: 8 }}>
+                      <TextInput
+                        value={em.name}
+                        onChangeText={(t) => setEditModel({ ...em, name: t })}
+                        placeholder="Nom de la machine"
+                        placeholderTextColor={C.ink3}
+                        style={{ backgroundColor: "rgba(255,255,255,.05)", borderRadius: 8, color: C.ink0, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, fontWeight: "700" }}
+                      />
+                      <TextInput
+                        value={em.setting}
+                        onChangeText={(t) => setEditModel({ ...em, setting: t })}
+                        placeholder="Réglage (siège 4, dossier 2…)"
+                        placeholderTextColor={C.ink3}
+                        style={{ backgroundColor: "rgba(255,255,255,.05)", borderRadius: 8, color: C.ink0, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13 }}
+                      />
+                      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                        {Object.entries(MODEL_COLOR_HEX).map(([key, cHex]) => (
+                          <Pressable
+                            key={key}
+                            onPress={() => setEditModel({ ...em, color: key })}
+                            hitSlop={6}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 12,
+                              backgroundColor: cHex,
+                              borderWidth: em.color === key ? 2 : 0,
+                              borderColor: C.ink0,
+                            }}
+                          />
+                        ))}
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                        <Pressable onPress={() => setDeleteModelConfirm(m)} hitSlop={6} style={{ padding: 8 }}>
+                          <Ionicons name="trash-outline" size={16} color={C.danger} />
+                        </Pressable>
+                        <Btn kind="ghost" sm onPress={() => setEditModel(null)} style={{ flex: 1 }}>
+                          Annuler
+                        </Btn>
+                        <Btn
+                          sm
+                          disabled={!em.name.trim()}
+                          onPress={async () => {
+                            await data.updateExerciseModel(em.id, {
+                              name: em.name.trim(),
+                              setting: em.setting.trim() || null,
+                              color: em.color,
+                            });
+                            setEditModel(null);
+                            haptic("success");
+                          }}
+                          style={{ flex: 1 }}
+                        >
+                          Enregistrer
+                        </Btn>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             )}
             <Label style={{ marginBottom: 8 }}>Nouvelle machine</Label>
@@ -357,6 +452,20 @@ export default function Params() {
           </View>
         )}
       </Sheet>
+
+      {/* Suppression machine */}
+      <ConfirmSheet
+        open={!!deleteModelConfirm}
+        onClose={() => setDeleteModelConfirm(null)}
+        onConfirm={async () => {
+          const m = deleteModelConfirm;
+          setDeleteModelConfirm(null);
+          setEditModel(null);
+          if (m) await data.deleteExerciseModel(m.id);
+        }}
+        title="Supprimer cette machine ?"
+        message={deleteModelConfirm ? `"${deleteModelConfirm.name}" sera supprimée. L'historique des séries faites dessus est conservé dans le journal.` : ""}
+      />
     </ScrollView>
   );
 }

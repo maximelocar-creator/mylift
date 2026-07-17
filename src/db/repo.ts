@@ -693,3 +693,31 @@ export async function deleteSubGroup(userId: string, group: string, name: string
     }
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Machines (exercise_models) : édition et suppression                 */
+/* ------------------------------------------------------------------ */
+export async function updateExerciseModel(modelId: string, patch: { name?: string; setting?: string | null; color?: string | null }): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const row = await tx.getFirstAsync<Any>("SELECT * FROM exercise_models WHERE id = ?", [modelId]);
+    if (!row) return;
+    const next = {
+      name: patch.name !== undefined ? patch.name : row.name,
+      setting: patch.setting !== undefined ? patch.setting : row.setting,
+      color: patch.color !== undefined ? patch.color : row.color,
+    };
+    await tx.runAsync("UPDATE exercise_models SET name = ?, setting = ?, color = ? WHERE id = ?", [next.name, next.setting, next.color, modelId]);
+    await enqueue(tx as any, "exercise_models", "update", { id: modelId }, next);
+  });
+}
+
+export async function deleteExerciseModel(modelId: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("DELETE FROM exercise_models WHERE id = ?", [modelId]);
+    await tx.runAsync("DELETE FROM program_model_targets WHERE model_id = ?", [modelId]);
+    // Cascade serveur pour program_model_targets ; un seul delete de tête
+    await enqueue(tx as any, "exercise_models", "delete", { id: modelId }, null);
+  });
+}

@@ -42,6 +42,8 @@ type DataState = {
   renameSubGroup: (group: string, oldName: string, newName: string) => Promise<void>;
   deleteSubGroup: (group: string, name: string) => Promise<void>;
   seedCountInGroup: (group: string) => Promise<number>;
+  updateExerciseModel: (modelId: string, patch: { name?: string; setting?: string | null; color?: string | null }) => Promise<void>;
+  deleteExerciseModel: (modelId: string) => Promise<void>;
 };
 
 const Ctx = createContext<DataState | null>(null);
@@ -244,6 +246,14 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       await afterWrite();
     },
     seedCountInGroup: (group) => repo.seedCountInGroup(group),
+    updateExerciseModel: async (modelId, patch) => {
+      await repo.updateExerciseModel(modelId, patch);
+      await afterWrite();
+    },
+    deleteExerciseModel: async (modelId) => {
+      await repo.deleteExerciseModel(modelId);
+      await afterWrite();
+    },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
