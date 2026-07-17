@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/theme";
+import { DataProvider } from "@/lib/store";
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -28,15 +29,19 @@ export default function RootLayout() {
     if (session && onLogin) router.replace("/home");
   }, [ready, session, segments]);
 
+  const stack = (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: C.bg0 },
+      }}
+    />
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: C.bg0 },
-        }}
-      />
+      {session ? <DataProvider userId={session.user.id}>{stack}</DataProvider> : stack}
     </View>
   );
 }
