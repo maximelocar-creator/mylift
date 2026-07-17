@@ -283,6 +283,24 @@ export async function outboundAccepted(me: string, other: string): Promise<boole
   return data?.status === "accepted";
 }
 
+/* ------------------------------------------------------------------ */
+/* Suggestions d'amis (amis en commun)                                 */
+/* La RLS de follows ne montre que SES propres liens → le calcul vit   */
+/* dans la fonction SQL friend_suggestions (SECURITY DEFINER, voir     */
+/* supabase/friend_suggestions.sql, à appliquer par Maxime). Tant que  */
+/* la fonction n'existe pas en prod, on renvoie null et l'UI masque    */
+/* la section — aucune policy n'est affaiblie côté client.             */
+/* ------------------------------------------------------------------ */
+export async function fetchFriendSuggestions(me: string): Promise<Any[] | null> {
+  const { data, error } = await supabase.rpc("friend_suggestions", { max_results: 10 });
+  if (error) return null; // fonction absente ou refusée : section masquée
+  const rows: Any[] = (data ?? []).filter((r: Any) => r.suggested_id && r.suggested_id !== me);
+  if (!rows.length) return [];
+  const { data: profs } = await supabase.from("profiles").select("*").in("id", rows.map((r) => r.suggested_id));
+  const byId: Record<string, Any> = Object.fromEntries((profs ?? []).map((p: Any) => [p.id, p]));
+  return rows.map((r) => ({ id: r.suggested_id, mutual: Number(r.mutual_count) || 0, profile: byId[r.suggested_id] ?? null })).filter((r) => r.profile);
+}
+
 /** Publier un post. lift_ref ne doit JAMAIS contenir de nom de machine. */
 export async function createPost(ownerId: string, post: { type: "lift" | "session"; title: string; text?: string | null; lift_ref?: Any | null; log_id?: string | null; image_url?: string | null }): Promise<string> {
   const id = "id-" + Math.random().toString(36).slice(2, 9) + "-" + Date.now();

@@ -23,7 +23,14 @@ export default function Search() {
   const [results, setResults] = useState<Any[]>([]);
   const [searching, setSearching] = useState(false);
   const [followStates, setFollowStates] = useState<Record<string, string>>({}); // id → 'none'|'pending'|'accepted'
+  const [suggestions, setSuggestions] = useState<Any[] | null>(null); // null = RPC absente → section masquée
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Suggestions par amis en commun (RPC serveur — voir supabase/friend_suggestions.sql)
+  useEffect(() => {
+    if (!userId) return;
+    social.fetchFriendSuggestions(userId).then(setSuggestions).catch(() => setSuggestions(null));
+  }, [userId]);
 
   const runSearch = async (query: string) => {
     if (query.trim().length < 2) {
@@ -113,6 +120,40 @@ export default function Search() {
           />
           {searching && <ActivityIndicator size="small" color={C.ink3} />}
         </View>
+
+        {q.trim().length < 2 && suggestions !== null && suggestions.length > 0 && (
+          <View style={{ marginBottom: 18 }}>
+            <Text style={{ fontSize: 13, fontWeight: "800", color: C.ink2, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+              Suggestions
+            </Text>
+            <View style={{ gap: 6 }}>
+              {suggestions.map((sug) => {
+                const st = followStates[sug.id] || "none";
+                return (
+                  <View
+                    key={sug.id}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16 }}
+                  >
+                    <Pressable onPress={() => router.push(`/user/${sug.id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <Avatar profile={sug.profile} size={44} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>
+                          @{sug.profile.username}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>
+                          {sug.mutual} ami{sug.mutual > 1 ? "s" : ""} en commun{sug.profile.ville ? ` · ${sug.profile.ville}` : ""}
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Btn kind={st === "pending_sent" ? "ghost" : "primary"} sm disabled={st === "pending_sent"} onPress={() => toggleFriend(sug.id)}>
+                      {st === "pending_sent" ? "Demandé" : "Suivre"}
+                    </Btn>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {q.trim().length >= 2 && !searching && results.length === 0 && (
           <Text style={{ color: C.ink3, textAlign: "center", padding: 24 }}>Aucun utilisateur pour « {q.trim()} »</Text>
