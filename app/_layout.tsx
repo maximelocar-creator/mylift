@@ -47,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="muscle/[group]" />
         <Stack.Screen name="program/[id]" />
         <Stack.Screen name="generator" />
+        <Stack.Screen name="volume/[id]" />
         <Stack.Screen name="home" options={{ presentation: "modal" }} />
       </Stack.Protected>
       <Stack.Protected guard={!session}>

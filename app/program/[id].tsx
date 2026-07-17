@@ -483,8 +483,15 @@ export default function ProgramEditor() {
       {/* Volume programme */}
       {groupsWithActivity.length > 0 && (
         <View style={{ padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 12, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <Label>Volume programme</Label>
+            <Pressable
+              onPress={() => router.push(`/volume/${program.id}`)}
+              hitSlop={6}
+              style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: "rgba(255,255,255,.05)" }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: "700", color: C.accentHi }}>✎ Cibles</Text>
+            </Pressable>
             <Text style={[mono, { fontSize: 11, fontWeight: "700", color: C.ink2 }]}>
               <Text style={{ color: C.ink0 }}>{totalProgramSets}</Text>
               {totalProgramTarget > 0 ? <Text style={{ color: C.ink3 }}> / {totalProgramTarget}</Text> : null}
