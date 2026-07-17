@@ -26,6 +26,21 @@ Testé via Expo Go sur iPhone (pas de simulateur Mac disponible — Maxime n'a p
 de Mac). Si erreur de version SDK affichée sur le téléphone : la version
 installée d'Expo Go fait foi, aligner `package.json` dessus, pas l'inverse.
 
+Pièges appris sur ce projet (ne pas re-payer) :
+- Modules natifs : la version JS doit matcher le natif embarqué dans Expo Go —
+  vérifier `node_modules/expo/bundledNativeModules.json`. Exemple vécu :
+  react-native-worklets doit rester épinglé à 0.5.1 (reanimated tire sinon une
+  0.8.x → "Exception in HostFunction" à l'import, toutes les routes cassées
+  avec de faux "missing default export").
+- Le watcher Metro ne voit pas les dossiers créés/paquets installés pendant
+  qu'il tourne → redémarrer avec `-c` après un npm install ou un nouveau
+  dossier source.
+- Metro lancé en arrière-plan sans TTY n'affiche pas le QR code : utiliser
+  `script -qfec "npx expo start --tunnel -c" <log>` (le `-f` = flush).
+- Vérifier un bundle iOS sans téléphone :
+  `curl "http://localhost:8081/node_modules/expo-router/entry.bundle?platform=ios&dev=true"`
+  (HTTP 200 = compile, 500 = l'erreur est dans le corps de la réponse).
+
 ## Invariants métier — NE JAMAIS DÉVIER
 
 Toute la logique de calcul (PR, index de progression, e1RM) doit être portée
@@ -153,11 +168,11 @@ se perdre en cas de coupure réseau ou de fermeture d'app.
 - Aucun hint "tap pour ouvrir" — l'UI doit être auto-évidente
 - Fin de séance : écran de récap post-séance avec les PRs mis en avant
 
-**Écran Progrès + Dashboard (fusionnés, une seule source de calcul)**
-Actuellement livrés comme deux écrans copy-pastés qui ne se parlent pas —
-à corriger : si un chiffre apparaît sur les deux (tonnage, streak, nombre de
-séances), il doit venir du même appel à src/core/mylift.ts, jamais recalculé
-deux fois avec une logique différente.
+**Écran Progrès + Dashboard (fusionnés, une seule source de calcul)** — FAIT :
+src/lib/stats.ts (usePeriodStats/useWeekStats) est l'unique point de calcul,
+les deux écrans consomment les mêmes sélecteurs mémoïsés. Si un chiffre
+apparaît sur les deux (tonnage, streak, nombre de séances), il vient du même
+appel à src/core/mylift.ts, jamais recalculé deux fois.
 - Dashboard : KPI hero switchable par l'utilisateur, séances de la semaine,
   PRs récents, volume, streak, carte Pesée cliquable menant à l'écran Pesée
 - Progrès / Analyse : toggle Muscles / Exos
@@ -171,12 +186,15 @@ deux fois avec une logique différente.
 **Écran Pesée** : liste chronologique, graphique, delta entre pesées,
 ajout/édition/suppression (pas de notion "à jeun" — décision verrouillée)
 
-**Édition de programme** (actuellement absente, à construire) : CRUD complet
-sur programs/program_sessions/program_exercises/program_model_targets —
-ajouter/retirer une séance, un exo dans une séance, une variante planifiée,
-modifier les cibles de poids par machine. Écriture locale + sync comme le
-reste. Sans cet écran l'app est inutilisable au quotidien : impossible de
-faire évoluer un programme dans le temps.
+**Édition de programme** — FAIT (app/program/[id].tsx, port de ParamsProgram
+v40) : CRUD complet sur programs/program_sessions/program_exercises/
+program_model_targets — séances (ajout/rename/suppression), exos (ajout via
+picker recherche+filtre muscle, réordonnancement, déplacement inter-séances,
+suppression), stepper séries 1-6, cibles kg ou par machine, variantes
+planifiées (principale ★ + ajout biblio même muscle). Écritures via
+store.updateProgram (copie mutée → diff SQLite + queue de sync).
+Restent à porter : générateur auto (GeneratorForm) et éditeur de focus
+muscles (EditMuscleStatusSheet) — passe dédiée plus tard.
 
 **Réglages** : bibliothèque d'exercices (liste, ajout, rename avec
 propagation du nouveau nom aux snapshots journalLogs/programs/activeSession,
