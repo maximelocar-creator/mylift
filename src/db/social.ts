@@ -201,3 +201,43 @@ export async function fetchFeedPosts(me: string): Promise<Any[]> {
   if (error) throw new Error(error.message);
   return attachProfiles(data ?? [], "owner_id");
 }
+
+/** Posts d'un utilisateur (la RLS tranche : visibles seulement si ami accepté
+ *  dans le sens lecteur→auteur, ou soi-même). */
+export async function fetchUserPosts(ownerId: string): Promise<Any[]> {
+  const { data, error } = await supabase.from("posts").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(50);
+  if (error) throw new Error(error.message);
+  return attachProfiles(data ?? [], "owner_id");
+}
+
+export async function fetchPost(postId: string): Promise<Any | null> {
+  const { data, error } = await supabase.from("posts").select("*").eq("id", postId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const rows = await attachProfiles([data], "owner_id");
+  return rows[0] ?? null;
+}
+
+/** Mon lien sortant vers `other` est-il accepted ? (= la RLS me laisse voir
+ *  ses posts — sinon la réciprocité auto-convergente est encore en cours) */
+export async function outboundAccepted(me: string, other: string): Promise<boolean> {
+  const { data } = await supabase.from("follows").select("status").eq("follower_id", me).eq("following_id", other).maybeSingle();
+  return data?.status === "accepted";
+}
+
+/** Publier un post. lift_ref ne doit JAMAIS contenir de nom de machine. */
+export async function createPost(ownerId: string, post: { type: "lift" | "session"; title: string; text?: string | null; lift_ref?: Any | null; log_id?: string | null; image_url?: string | null }): Promise<string> {
+  const id = "id-" + Math.random().toString(36).slice(2, 9) + "-" + Date.now();
+  const { error } = await supabase.from("posts").insert({
+    id,
+    owner_id: ownerId,
+    type: post.type,
+    title: post.title,
+    text: post.text ?? null,
+    lift_ref: post.lift_ref ?? null,
+    log_id: post.log_id ?? null,
+    image_url: post.image_url ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return id;
+}

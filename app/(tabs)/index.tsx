@@ -15,39 +15,8 @@ import { useActiveSession } from "@/lib/activeSession";
 import { useSocial } from "@/lib/social";
 import * as social from "@/db/social";
 import { SyncDot, Btn, ScreenSkeleton, Chip } from "@/ui/kit";
-import { Avatar } from "@/ui/Avatar";
-import { formatRelative } from "@/lib/format";
+import { PostCard } from "@/ui/PostCard";
 import type { Any } from "@/core/mylift";
-
-function PostCard({ post, index, onOpenUser }: { post: Any; index: number; onOpenUser: (id: string) => void }) {
-  const isLift = post.type === "lift";
-  const lift = post.lift_ref;
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(Math.min(index * 50, 300)).duration(MOTION.view)}
-      style={{ backgroundColor: C.bg2, borderWidth: 1, borderColor: isLift ? "rgba(255,194,51,.25)" : L.line, borderRadius: 16, padding: 14, marginBottom: 10 }}
-    >
-      <Pressable onPress={() => onOpenUser(post.owner_id)} style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <Avatar profile={post.profile} size={36} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "700", color: C.ink0 }}>
-            @{post.profile.username}
-          </Text>
-          <Text style={{ fontSize: 10.5, color: C.ink3, marginTop: 1 }}>{formatRelative(post.created_at?.slice(0, 10))}</Text>
-        </View>
-        <Chip tone={isLift ? "gold" : undefined}>{isLift ? "🏆 Lift" : "Séance"}</Chip>
-      </Pressable>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink0, lineHeight: 20 }}>{post.title}</Text>
-      {!!lift && (
-        <Text style={[mono, { fontSize: 13, color: C.gold, fontWeight: "700", marginTop: 4 }]}>
-          {lift.exName} · {lift.weight} kg × {lift.reps}
-          {lift.prType === "all-time" ? " · PR all-time" : lift.prType === "rep" ? " · rep PR" : ""}
-        </Text>
-      )}
-      {!!post.text && <Text style={{ fontSize: 13, color: C.ink1, marginTop: 6, lineHeight: 18 }}>{post.text}</Text>}
-    </Animated.View>
-  );
-}
 
 export default function Feed() {
   const insets = useSafeAreaInsets();
@@ -138,7 +107,7 @@ export default function Feed() {
         </View>
       </View>
 
-      {posts !== null && posts.length > 0 && posts.map((p, i) => <PostCard key={p.id} post={p} index={i} onOpenUser={(id) => router.push(`/user/${id}`)} />)}
+      {posts !== null && posts.length > 0 && posts.map((p, i) => <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} onOpenUser={(id) => router.push(`/user/${id}`)} />)}
 
       {posts !== null && posts.length === 0 && (
         <Animated.View

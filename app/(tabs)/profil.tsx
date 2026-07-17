@@ -14,6 +14,7 @@ import { useActiveSession } from "@/lib/activeSession";
 import * as social from "@/db/social";
 import { Sheet, Btn, SyncDot, ConfirmSheet } from "@/ui/kit";
 import { Avatar } from "@/ui/Avatar";
+import { PostCard } from "@/ui/PostCard";
 import { haptic } from "@/lib/haptics";
 import type { Any } from "@/core/mylift";
 
@@ -31,11 +32,13 @@ export default function Profil() {
   const [listOpen, setListOpen] = useState(false);
   const [listRows, setListRows] = useState<Any[]>([]);
   const [removeTarget, setRemoveTarget] = useState<Any | null>(null);
+  const [myPosts, setMyPosts] = useState<Any[]>([]);
 
   const load = async () => {
     try {
       const p = await social.fetchProfile(userId!);
       setProfile(p);
+      setMyPosts(await social.fetchUserPosts(userId!));
     } catch {}
   };
   useEffect(() => {
@@ -118,6 +121,15 @@ export default function Profil() {
           ⚖️ Pesée
         </Btn>
       </View>
+
+      {/* Mes posts — même carte que partout ailleurs */}
+      {myPosts.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          {myPosts.map((p: Any, i: number) => (
+            <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} />
+          ))}
+        </View>
+      )}
 
       {/* QR de profil */}
       <Sheet open={qrOpen} onClose={() => setQrOpen(false)} title="Mon QR code">

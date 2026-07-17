@@ -16,6 +16,7 @@ import { useSocial } from "@/lib/social";
 import * as social from "@/db/social";
 import { Btn, ConfirmSheet, Skeleton } from "@/ui/kit";
 import { Avatar } from "@/ui/Avatar";
+import { PostCard } from "@/ui/PostCard";
 import type { Any } from "@/core/mylift";
 
 export default function UserProfile() {
@@ -31,6 +32,8 @@ export default function UserProfile() {
   const [followState, setFollowState] = useState<string>("loading"); // none|pending|accepted
   const [unfollowConfirm, setUnfollowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Any[] | null>(null);
+  const [syncingFriendship, setSyncingFriendship] = useState(false);
 
   const load = async () => {
     try {
@@ -38,6 +41,15 @@ export default function UserProfile() {
       setProfile(p);
       setCounts({ friends: c });
       setFollowState(st);
+      if (st === "friends") {
+        // Piège RLS directionnel (CLAUDE.md) : mes posts visibles seulement si
+        // MON lien sortant est accepted — sinon la réciprocité converge encore.
+        const [rows, out] = await Promise.all([social.fetchUserPosts(otherId), social.outboundAccepted(userId!, otherId)]);
+        setPosts(rows);
+        setSyncingFriendship(!out && rows.length === 0);
+      } else {
+        setPosts(null);
+      }
     } catch (e: any) {
       setError(e?.message ?? String(e));
     }
@@ -121,11 +133,26 @@ export default function UserProfile() {
             </Btn>
           )}
 
+          {/* Amis : ses posts (même carte que le feed) */}
+          {followState === "friends" && posts !== null && posts.length > 0 && (
+            <View style={{ marginTop: 16 }}>
+              {posts.map((p: Any, i: number) => (
+                <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} />
+              ))}
+            </View>
+          )}
+
           {/* Compte privé : rien d'autre n'est montré tant que non accepté */}
           <View style={{ alignItems: "center", padding: 32, gap: 8, marginTop: 16 }}>
             <Ionicons name={followState === "friends" ? "checkmark-circle-outline" : "lock-closed-outline"} size={28} color={C.ink3} />
             {followState === "friends" ? (
-              <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>Vous êtes amis. Ses posts apparaissent dans ton feed.</Text>
+              posts !== null && posts.length > 0 ? null : syncingFriendship ? (
+                <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
+                  Vous êtes amis — la synchronisation de l'amitié se termine, ses posts apparaîtront d'ici peu.
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>Vous êtes amis. Aucun post pour l'instant.</Text>
+              )
             ) : (
               <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
                 Ce compte est privé.{" "}
