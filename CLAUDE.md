@@ -248,11 +248,35 @@ dashboard en stagger + count-up. Exigences d'origine :
 - Chiffres en tabular-nums partout, touch targets ≥44px minimum
 
 ### Phase 2 — Profils et découverte
-ÉTAT : nav (Feed/Journal/Stats/Notifs/Profil), profil + édition + QR,
-recherche, follow pending/accepted complet, profil autrui privé — FAITS.
+ÉTAT : FAIT — nav 4 onglets (Feed accueil/Journal/Stats/Profil, notifs =
+cloche+badge sur le header du Feed), Stats en 3 vues commutables
+(Dashboard/Surcharge/Pesée, préférence locale), profil + édition + QR,
+recherche, profil autrui privé, feed minimal (posts des amis).
 Test de fuite `npm run test:leak` (compte neuf réel) : 8/8 étanche.
 Apple/Google câblés (src/lib/oauth.ts), à valider au premier build EAS.
 Onboarding guidé complet (compte→profil→1er programme) : reste à faire.
+
+DÉCISION VERROUILLÉE (Maxime) — modèle AMIS, pas follow/follow-back :
+une demande pending → acceptation → relation réciproque. Contraintes RLS
+découvertes en prod : l'insert follows n'autorise que status=pending, et
+la RLS des posts est directionnelle (on voit les posts de ceux qu'on suit
+en accepted, pas de ceux qui nous suivent). D'où la réciprocité
+AUTO-CONVERGENTE (src/db/social.ts) : accepter crée la demande inverse en
+pending, et ensureReciprocity() à chaque refresh auto-accepte tout pending
+entrant quand un lien accepted existe déjà. Ne pas "simplifier" ça sans
+retester la visibilité des posts dans les deux sens.
+
+SCHÉMA RÉEL sondé en prod (≠ suppositions) : profiles(id, username,
+VILLE — pas city, bio, avatar_url, tier, current_program_id) ;
+posts(id text client, owner_id, type 'lift'|'session', log_id,
+lift_ref jsonb, title NOT NULL, text, image_url, created_at).
+Avatar : upload Storage "avatars" en octets base64 (fetch(file://) non
+fiable en RN), repli automatique en data-URI 256px si bucket absent.
+
+Comptes de TEST seedés en prod (npm run seed:fake, creds dans
+scripts/.fake-users.json gitignoré) : alex_lifts, sofia.gains, marc_pr —
+amis réciproques avec @maxlocar, 2 posts chacun. Mode "accept" pour faire
+accepter leurs demandes entrantes. À purger avant la mise en production.
 
 
 **Première expérience utilisateur (onboarding grand public)** — priorité forte
@@ -311,6 +335,11 @@ du flow d'un utilisateur normal.
   automatique) ou depuis une carte PR spécifique
 - Deux types de post : séance complète (log_id) ou lift ponctuel (lift_ref
   jsonb, exo+PR isolé)
+- PHOTOS dans les posts (demandé par Maxime) : prise de photo à la volée
+  (appareil photo) OU choix depuis la galerie au moment de publier, colonne
+  posts.image_url déjà en place. Même pipeline que l'avatar : compression
+  côté client max ~1080px JPEG avant upload (contrainte de coût), une seule
+  image par post, affichée dans la carte du feed
 - Feed chronologique des comptes suivis acceptés + ses propres posts
 - Respect strict de la confidentialité des machines : un post peut montrer
   un exo et une performance, jamais le nom de la machine personnelle
