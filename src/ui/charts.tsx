@@ -21,13 +21,13 @@ function buildPath(points: { x: number; y: number }[]) {
 /* Courbe indice : brute (fine, transparente) + lissée (épaisse) +      */
 /* baseline 100 + scrubber                                             */
 /* ------------------------------------------------------------------ */
-export function IndexChart({ raw, smooth }: { raw: Pt[]; smooth: Pt[] }) {
+export function IndexChart({ raw, smooth, baseline = 100, unit = "indice" }: { raw: Pt[]; smooth: Pt[]; baseline?: number | null; unit?: string }) {
   const [width, setWidth] = useState(0);
   const [scrub, setScrub] = useState<number | null>(null);
 
   const geom = useMemo(() => {
     if (!width || smooth.length < 2) return null;
-    const all = [...raw.map((p) => p.value), ...smooth.map((p) => p.value), 100];
+    const all = [...raw.map((p) => p.value), ...smooth.map((p) => p.value), ...(baseline !== null ? [baseline] : [])];
     const vmin = Math.min(...all) - 2;
     const vmax = Math.max(...all) + 2;
     const range = vmax - vmin || 1;
@@ -35,8 +35,8 @@ export function IndexChart({ raw, smooth }: { raw: Pt[]; smooth: Pt[] }) {
     const my = (v: number) => PADY + (H - 2 * PADY) * (1 - (v - vmin) / range);
     const rawM = raw.map((p, i) => ({ x: PADX + i * xStep, y: my(p.value) }));
     const smoothM = smooth.map((p, i) => ({ x: PADX + i * xStep, y: my(p.value) }));
-    return { rawM, smoothM, baselineY: my(100), xStep };
-  }, [width, raw, smooth]);
+    return { rawM, smoothM, baselineY: baseline !== null ? my(baseline) : null, xStep };
+  }, [width, raw, smooth, baseline]);
 
   const onTouch = (e: GestureResponderEvent) => {
     if (!geom || !smooth.length) return;
@@ -58,8 +58,10 @@ export function IndexChart({ raw, smooth }: { raw: Pt[]; smooth: Pt[] }) {
       {geom && (
         <>
           <Svg width={width} height={H}>
-            {/* Baseline 100 */}
-            <Line x1={PADX} y1={geom.baselineY} x2={width - PADX} y2={geom.baselineY} stroke="rgba(255,255,255,.12)" strokeWidth={1} strokeDasharray="3,4" />
+            {/* Baseline (100 pour les indices) */}
+            {geom.baselineY !== null && (
+              <Line x1={PADX} y1={geom.baselineY} x2={width - PADX} y2={geom.baselineY} stroke="rgba(255,255,255,.12)" strokeWidth={1} strokeDasharray="3,4" />
+            )}
             {/* Area sous la lissée */}
             <Path
               d={buildPath(geom.smoothM) + ` L${geom.smoothM[geom.smoothM.length - 1].x},${H} L${geom.smoothM[0].x},${H} Z`}
@@ -80,7 +82,7 @@ export function IndexChart({ raw, smooth }: { raw: Pt[]; smooth: Pt[] }) {
           <View style={{ flexDirection: "row", justifyContent: scrub !== null ? "center" : "space-between", paddingHorizontal: 2, marginTop: 4 }}>
             {scrub !== null && smooth[scrub] ? (
               <Text style={[mono, { fontSize: 11, fontWeight: "700", color: C.ink0 }]}>
-                {formatDate(smooth[scrub].date)} · indice {smooth[scrub].value.toFixed(1)}
+                {formatDate(smooth[scrub].date)} · {unit} {smooth[scrub].value.toFixed(1)}
               </Text>
             ) : (
               <>
