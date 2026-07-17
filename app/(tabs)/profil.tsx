@@ -1,7 +1,7 @@
 // Profil (le sien) — avatar, username, ville, bio, compteurs, QR de profil,
 // listes followers/following, accès édition et réglages (import backup inclus,
 // discret, dans Réglages).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -48,12 +48,15 @@ export default function Profil() {
     setRefreshing(false);
   };
 
+  const listReq = useRef(0);
   const openList = async (kind: "followers" | "following") => {
+    const req = ++listReq.current;
     setListOpen(kind);
     setListRows([]);
     try {
       const rows = kind === "followers" ? await social.fetchFollowers(userId!) : await social.fetchFollowing(userId!);
-      setListRows(rows);
+      // Ignore les réponses périmées (ouverture rapide de l'autre liste)
+      if (listReq.current === req) setListRows(rows);
     } catch {}
   };
 
