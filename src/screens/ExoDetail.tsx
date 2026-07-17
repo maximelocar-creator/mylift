@@ -12,6 +12,7 @@ import { exoTimeline, exoKeyNoModel, isValidSet, iso, daysAgo, type Any } from "
 import { formatRelative, DOW_FR_S } from "../lib/format";
 import { Segment, Card, Chip, Label, SectionLabel, LINE, ACCENT_WASH, GOLD_WASH } from "../ui/kit";
 import { E1RMChart, IndexChart } from "../ui/charts";
+import { ComposePost, type PostDraft } from "./ComposePost";
 
 const MODEL_COLOR_HEX: Record<string, string> = {
   coral: "#FC4C02",
@@ -28,6 +29,7 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
   const { journalLogs, exerciseLib } = useData();
   const [period, setPeriod] = useState("90");
   const [modelFilter, setModelFilter] = useState<string | null>(null);
+  const [liftDraft, setLiftDraft] = useState<PostDraft | null>(null);
 
   const baseKey = keyId.split("/m:")[0];
   const libEx = exerciseLib.find((l) => "lib:" + l.id === baseKey);
@@ -307,6 +309,20 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
                     )}
                   </View>
                   <Text style={{ fontSize: 11, color: C.ink3 }}>{formatRelative(pr.date)}</Text>
+                  <Pressable
+                    onPress={() =>
+                      // Payload lift SANS machine (jamais de modelId/nom de modèle)
+                      setLiftDraft({
+                        type: "lift",
+                        defaultTitle: `${name} · ${pr.w} kg × ${pr.r}`,
+                        lift_ref: { exName: name, weight: pr.w, reps: pr.r },
+                      })
+                    }
+                    hitSlop={6}
+                    style={{ padding: 6 }}
+                  >
+                    <Ionicons name="share-outline" size={16} color={C.ink2} />
+                  </Pressable>
                 </View>
               );
             })}
@@ -392,6 +408,8 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
             );
           })}
       </View>
+
+      <ComposePost open={!!liftDraft} onClose={() => setLiftDraft(null)} draft={liftDraft} />
     </ScrollView>
   );
 }

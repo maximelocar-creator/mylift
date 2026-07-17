@@ -109,6 +109,17 @@ export function PostCard({
           </View>
         )}
 
+        {!isLift && (post.lift_ref?.prList?.length ?? 0) > 0 && (
+          <View style={{ marginBottom: 8, gap: 3 }}>
+            {post.lift_ref.prList.slice(0, 4).map((pr: Any, i: number) => (
+              <Text key={i} style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
+                🏆 {pr.exName} · {pr.weight}×{pr.reps}
+                {pr.type === "all-time" ? " · all-time" : pr.type === "rep" ? " · rep PR" : ""}
+              </Text>
+            ))}
+          </View>
+        )}
+
         {/* Titre / texte */}
         <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink0, lineHeight: 20 }}>{post.title}</Text>
         {!!post.text && (

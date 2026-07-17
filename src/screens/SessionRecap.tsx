@@ -7,6 +7,8 @@ import { tonnageSession, setsCountSession, exoMuscleGroup, isValidSet, type Any 
 import { formatNum, formatDur } from "../lib/format";
 import { useData } from "../lib/store";
 import { Btn, LINE } from "../ui/kit";
+import { ComposePost, type PostDraft } from "./ComposePost";
+import { useState } from "react";
 
 export default function SessionRecap({ log, onClose }: { log: Any; onClose: () => void }) {
   const insets = useSafeAreaInsets();
@@ -14,6 +16,19 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
   const ton = tonnageSession(log);
   const sets = setsCountSession(log);
   const prs = log.prs || [];
+  const [composeOpen, setComposeOpen] = useState(false);
+
+  // UN SEUL post séance depuis le récap, PR(s) valorisés dedans (décision
+  // Maxime). Payload SANS aucune référence machine (modelId strippé).
+  const draft: PostDraft = {
+    type: "session",
+    log_id: log.id,
+    defaultTitle: `Séance ${log.sessionName || ""}`.trim() + (prs.length ? ` · ${prs.length} PR${prs.length > 1 ? "s" : ""}` : ""),
+    lift_ref: {
+      stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
+      prList: prs.map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
+    },
+  };
 
   // Volume (séries validées) par muscle
   const byMuscle: Record<string, number> = {};
@@ -125,10 +140,17 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
         </ScrollView>
 
         <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, paddingBottom: insets.bottom + 20, backgroundColor: C.bg0 }}>
-          <Btn full onPress={onClose}>
-            Continuer
-          </Btn>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Btn kind="ghost" onPress={onClose} style={{ flex: 1 }}>
+              Continuer
+            </Btn>
+            <Btn onPress={() => setComposeOpen(true)} style={{ flex: 1 }}>
+              Partager
+            </Btn>
+          </View>
         </View>
+
+        <ComposePost open={composeOpen} onClose={() => setComposeOpen(false)} draft={draft} />
       </View>
     </Modal>
   );

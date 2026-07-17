@@ -254,7 +254,13 @@ cloche+badge sur le header du Feed), Stats en 3 vues commutables
 recherche, profil autrui privé, feed minimal (posts des amis).
 Test de fuite `npm run test:leak` (compte neuf réel) : 8/8 étanche.
 Apple/Google câblés (src/lib/oauth.ts), à valider au premier build EAS.
-Onboarding guidé complet (compte→profil→1er programme) : reste à faire.
+Onboarding guidé : FAIT (app/onboarding.tsx) — gate dans app/(tabs)/_layout
+(pas de username → redirect onboarding) : étape 1 profil (username avec
+vérif d'unicité live, ville, bio ≤160, photo via le pipeline avatar
+partagé src/lib/images.ts), étape 2 premier programme (auto → générateur,
+manuel → éditeur de programme), skippable. L'import backup reste un outil
+interne isolé (lien discret sous le login), hors du flow public.
+→ Phase 2 TERMINÉE (reste la validation Apple/Google au 1er build EAS).
 
 DÉCISION VERROUILLÉE (Maxime) — modèle AMIS, pas follow/follow-back :
 une demande pending → acceptation → relation réciproque. Contraintes RLS
@@ -331,6 +337,19 @@ du flow d'un utilisateur normal.
 - QR code de profil personnel pour se suivre en présentiel
 
 ### Phase 3 — Feed et partage
+ÉTAT : cœur FAIT — PostCard unique (src/ui/PostCard.tsx : photo d'abord,
+chiffres dessous — décision Maxime) partagé par feed/profil/profil ami/
+détail (app/post/[id].tsx) ; composition de post
+(src/screens/ComposePost.tsx) : opt-in depuis le récap ("Partager" → UN
+SEUL post séance, PRs valorisés dedans via lift_ref.prList — décision
+Maxime, pas de post PR séparé depuis le récap) + partage d'un lift isolé
+depuis ExoDetail (lignes "Meilleurs poids") ; photos posts via le pipeline
+image partagé (bucket "posts", repli data-URI) ; export Instagram intégré
+post-publication (ShareCard tokens theme.ts, react-native-view-shot 1080px
+→ expo-sharing, story 9:16 + carré). Les payloads lift_ref ne contiennent
+JAMAIS de modelId/nom de machine (strippé à la composition).
+Restent : likes/commentaires = Phase 4 (rien d'autre en 3).
+
 - Création de post depuis le récap post-séance (partage opt-in, jamais
   automatique) ou depuis une carte PR spécifique
 - Deux types de post : séance complète (log_id) ou lift ponctuel (lift_ref
