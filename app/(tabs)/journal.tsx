@@ -1,7 +1,7 @@
 // Journal — port v40 : prochaine séance recommandée, autres séances, notes de
 // séance future, historique groupé par mois, détail + suppression.
 // Quand une séance est active, l'écran devient la séance live (comme v40).
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, ScrollView, TextInput, LayoutAnimation } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import { C, R, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
+import { ComposePost } from "@/screens/ComposePost";
 import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } from "@/lib/format";
 import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH, SyncDot } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
@@ -207,46 +208,134 @@ function HistoryRow({ log, onPress }: { log: Any; onPress: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-function HistoryDetail({ log, onDelete }: { log: Any; onDelete: () => void }) {
-  const ton = tonnageSession(log) / 1000;
+/* Détail d'une séance passée — port v40 HistoryDetail : lecture + mode
+   « Modifier les séries » (draft profond, Annuler/Enregistrer) + partage.
+   La persistance passe par updateLog (delete + réinsertion : l'immuabilité
+   serveur — UPDATE bloqué par trigger — n'est jamais contournée). */
+function HistoryDetail({ log, onDelete, onUpdate, onShare }: { log: Any; onDelete: () => void; onUpdate: (l: Any) => Promise<void>; onShare: () => void }) {
+  const [editMode, setEditMode] = useState(false);
+  const [draft, setDraft] = useState<Any | null>(null);
+  useEffect(() => {
+    setEditMode(false);
+    setDraft(null);
+  }, [log.id]);
+
+  const view = editMode && draft ? draft : log;
+  const ton = tonnageSession(view) / 1000;
+
+  const enterEdit = () => {
+    setDraft({ ...log, exercises: (log.exercises || []).map((ex: Any) => ({ ...ex, sets: (ex.sets || []).map((s: Any) => ({ ...s })) })) });
+    setEditMode(true);
+    haptic("light");
+  };
+  const cancelEdit = () => {
+    setDraft(null);
+    setEditMode(false);
+    haptic("light");
+  };
+  const saveEdit = async () => {
+    if (!draft) return;
+    await onUpdate(draft);
+    setEditMode(false);
+    setDraft(null);
+    haptic("success");
+  };
+  const updateDraftSet = (exIdx: number, setIdx: number, key: string, value: string) => {
+    setDraft((d: Any) => {
+      if (!d) return d;
+      const exos = [...d.exercises];
+      const sets = [...exos[exIdx].sets];
+      sets[setIdx] = { ...sets[setIdx], [key]: value };
+      exos[exIdx] = { ...exos[exIdx], sets };
+      return { ...d, exercises: exos };
+    });
+  };
+
+  const editInput = {
+    backgroundColor: "rgba(255,255,255,.05)",
+    borderRadius: 8,
+    color: C.ink0,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    fontSize: 12.5,
+    textAlign: "center" as const,
+    flex: 1,
+  };
+
   return (
     <View>
       <Text style={[mono, { color: C.ink2, fontSize: 13, marginBottom: 14 }]}>
-        {log.date} · {formatNum(ton, 1)} t · {formatDur(log.durationSec || 0)}
-        {log.programName ? " · " + log.programName : ""}
+        {view.date} · {formatNum(ton, 1)} t · {formatDur(view.durationSec || 0)}
+        {view.programName ? " · " + view.programName : ""}
       </Text>
-      {(log.exercises || []).map((ex: Any, i: number) => (
-        <View key={ex.id || i} style={{ marginBottom: 14 }}>
+
+      {!editMode ? (
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+          <Btn kind="ghost" sm onPress={enterEdit} style={{ flex: 1 }}>
+            ✎ Modifier les séries
+          </Btn>
+          <Btn sm onPress={onShare} style={{ flex: 1 }}>
+            Partager
+          </Btn>
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+          <Btn kind="ghost" sm onPress={cancelEdit} style={{ flex: 1 }}>
+            Annuler
+          </Btn>
+          <Btn sm onPress={() => saveEdit()} style={{ flex: 1 }}>
+            ✓ Enregistrer
+          </Btn>
+        </View>
+      )}
+
+      {(view.exercises || []).map((ex: Any, exIdx: number) => (
+        <View key={ex.id || exIdx} style={{ marginBottom: 14 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
             <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0, flex: 1 }} numberOfLines={1}>
               {ex.exName}
             </Text>
             {!!ex.muscleGroup && <Text style={{ fontSize: 11, color: C.ink3 }}>{ex.muscleGroup}</Text>}
           </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
-            {(ex.sets || []).map((s: Any, si: number) => (
-              <View key={si} style={{ paddingVertical: 3, paddingHorizontal: 8, backgroundColor: C.bg3, borderRadius: 6 }}>
-                <Text style={[mono, { fontSize: 12, fontWeight: "700", color: C.ink1 }]}>
-                  {s.weight}×{s.reps}
-                  {s.rir !== null && s.rir !== undefined && s.rir !== "" ? ` @${s.rir}` : ""}
-                </Text>
-              </View>
-            ))}
-          </View>
+          {editMode ? (
+            <View style={{ gap: 3 }}>
+              {(ex.sets || []).map((s: Any, si: number) => (
+                <View key={si} style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: 6, backgroundColor: C.bg3, borderRadius: 8 }}>
+                  <Text style={[mono, { color: C.ink3, fontSize: 10, fontWeight: "700", width: 18, textAlign: "center" }]}>{si + 1}</Text>
+                  <TextInput value={String(s.weight ?? "")} onChangeText={(t) => updateDraftSet(exIdx, si, "weight", t)} keyboardType="decimal-pad" placeholder="kg" placeholderTextColor={C.ink3} style={editInput} />
+                  <TextInput value={String(s.reps ?? "")} onChangeText={(t) => updateDraftSet(exIdx, si, "reps", t)} keyboardType="number-pad" placeholder="reps" placeholderTextColor={C.ink3} style={editInput} />
+                  <TextInput value={String(s.rir ?? "")} onChangeText={(t) => updateDraftSet(exIdx, si, "rir", t)} keyboardType="number-pad" placeholder="RIR" placeholderTextColor={C.ink3} style={[editInput, { flex: 0.7 }]} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
+              {(ex.sets || []).map((s: Any, si: number) => (
+                <View key={si} style={{ paddingVertical: 3, paddingHorizontal: 8, backgroundColor: C.bg3, borderRadius: 6 }}>
+                  <Text style={[mono, { fontSize: 12, fontWeight: "700", color: C.ink1 }]}>
+                    {s.weight}×{s.reps}
+                    {s.rir !== null && s.rir !== undefined && s.rir !== "" ? ` @${s.rir}` : ""}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       ))}
-      {(log.prs || []).length > 0 && (
+      {!editMode && (view.prs || []).length > 0 && (
         <View style={{ marginBottom: 14, padding: 12, backgroundColor: "rgba(255,194,51,.08)", borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,194,51,.25)" }}>
-          {(log.prs || []).map((pr: Any, i: number) => (
+          {(view.prs || []).map((pr: Any, i: number) => (
             <Text key={i} style={[mono, { fontSize: 12, color: C.gold, fontWeight: "700", paddingVertical: 2 }]}>
               🏆 {pr.type === "all-time" || pr.type === "allTime" ? "All-time" : "Rep PR"} · {pr.exName} · {pr.weight} kg × {pr.reps}
             </Text>
           ))}
         </View>
       )}
-      <Btn kind="danger" full onPress={onDelete}>
-        Supprimer la séance
-      </Btn>
+      {!editMode && (
+        <Btn kind="danger" full onPress={onDelete}>
+          Supprimer la séance
+        </Btn>
+      )}
     </View>
   );
 }
@@ -260,6 +349,7 @@ export default function Journal() {
   const { activeSession, setActiveSession } = useActiveSession();
 
   const [detailLog, setDetailLog] = useState<Any | null>(null);
+  const [shareLog, setShareLog] = useState<Any | null>(null);
   const [deleteLogConfirm, setDeleteLogConfirm] = useState<Any | null>(null);
   const [otherPickerOpen, setOtherPickerOpen] = useState(false);
   const [confirmStartSession, setConfirmStartSession] = useState<Any | null>(null);
@@ -477,6 +567,28 @@ export default function Journal() {
         </View>
       </Sheet>
 
+      {/* Partage d'une séance passée : même composeur que le récap (feed + export Insta).
+          Payload machine-free : stats + PRs, jamais de modelId. */}
+      <ComposePost
+        open={!!shareLog}
+        onClose={() => setShareLog(null)}
+        draft={
+          shareLog
+            ? {
+                type: "session",
+                log_id: shareLog.id,
+                defaultTitle:
+                  `Séance ${shareLog.sessionName || ""}`.trim() +
+                  ((shareLog.prs || []).length ? ` · ${shareLog.prs.length} PR${shareLog.prs.length > 1 ? "s" : ""}` : ""),
+                lift_ref: {
+                  stats: { durationSec: shareLog.durationSec || 0, tonnage: tonnageSession(shareLog), prs: (shareLog.prs || []).length },
+                  prList: (shareLog.prs || []).map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
+                },
+              }
+            : null
+        }
+      />
+
       {/* Sheet note de séance future */}
       <Sheet open={!!noteEdit} onClose={() => setNoteEdit(null)} title={noteEdit ? "Note · " + noteEdit.session.name : "Note"}>
         {noteEdit && (
@@ -545,7 +657,17 @@ export default function Journal() {
 
       {/* Détail séance historique */}
       <Sheet open={!!detailLog} onClose={() => setDetailLog(null)} title={detailLog?.sessionName || "Détail"}>
-        {detailLog && <HistoryDetail log={detailLog} onDelete={() => setDeleteLogConfirm(detailLog)} />}
+        {detailLog && (
+          <HistoryDetail
+            log={detailLog}
+            onDelete={() => setDeleteLogConfirm(detailLog)}
+            onUpdate={async (updated) => {
+              await data.updateLog(updated);
+              setDetailLog(updated);
+            }}
+            onShare={() => setShareLog(detailLog)}
+          />
+        )}
       </Sheet>
       <ConfirmSheet
         open={!!deleteLogConfirm}

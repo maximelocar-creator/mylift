@@ -327,10 +327,10 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           ) : (
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
               <Btn kind="ghost" onPress={async () => setPhoto((await takePhoto()) ?? null)} style={{ flex: 1 }}>
-                📷 Appareil
+                <Ionicons name="camera-outline" size={15} color={C.ink1} /> Appareil
               </Btn>
               <Btn kind="ghost" onPress={async () => setPhoto((await pickFromLibrary()) ?? null)} style={{ flex: 1 }}>
-                🖼 Galerie
+                <Ionicons name="images-outline" size={15} color={C.ink1} /> Galerie
               </Btn>
             </View>
           )}

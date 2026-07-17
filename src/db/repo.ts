@@ -218,6 +218,12 @@ export async function getJournalLogs(): Promise<Any[]> {
 export async function saveWorkoutLog(userId: string, log: Any): Promise<void> {
   const db = await getDb();
   await db.withExclusiveTransactionAsync(async (tx) => {
+    await writeLogTx(tx, userId, log);
+  });
+}
+
+async function writeLogTx(tx: Any, userId: string, log: Any): Promise<void> {
+  {
     const logRow = {
       id: log.id,
       owner_id: userId,
@@ -286,6 +292,26 @@ export async function saveWorkoutLog(userId: string, log: Any): Promise<void> {
       ]);
       await enqueue(tx as any, "workout_prs", "insert", { id: prRow.id }, prRow);
     }
+  }
+}
+
+/** Édition d'une séance passée (port du mode « Modifier les séries » v40).
+ *  Le trigger serveur bloque tout UPDATE sur workout_logs (immuabilité,
+ *  décision verrouillée) mais DELETE et INSERT restent permis : remplacer =
+ *  supprimer puis réinsérer sous le même id, dans une seule transaction
+ *  locale, la queue préservant l'ordre delete → insert côté serveur. */
+export async function replaceWorkoutLog(userId: string, log: Any): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const lexs = await tx.getAllAsync<Any>("SELECT id FROM log_exercises WHERE log_id = ?", [log.id]);
+    for (const le of lexs) {
+      await tx.runAsync("DELETE FROM log_sets WHERE log_exercise_id = ?", [le.id]);
+    }
+    await tx.runAsync("DELETE FROM log_exercises WHERE log_id = ?", [log.id]);
+    await tx.runAsync("DELETE FROM workout_prs WHERE log_id = ?", [log.id]);
+    await tx.runAsync("DELETE FROM workout_logs WHERE id = ?", [log.id]);
+    await enqueue(tx as any, "workout_logs", "delete", { id: log.id }, null);
+    await writeLogTx(tx, userId, log);
   });
 }
 

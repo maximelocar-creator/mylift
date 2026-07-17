@@ -28,6 +28,7 @@ type DataState = {
   clearRedoOnboarding: () => Promise<void>;
   reload: () => Promise<void>;
   saveLog: (log: Any) => Promise<void>;
+  updateLog: (log: Any) => Promise<void>;
   deleteLog: (logId: string) => Promise<void>;
   addWeight: (entry: { date: string; weight: number; note?: string | null }) => Promise<void>;
   deleteWeight: (id: string) => Promise<void>;
@@ -185,6 +186,10 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
     reload,
     saveLog: async (log) => {
       await repo.saveWorkoutLog(userId!, log);
+      await afterWrite();
+    },
+    updateLog: async (log) => {
+      await repo.replaceWorkoutLog(userId!, log);
       await afterWrite();
     },
     deleteLog: async (logId) => {
