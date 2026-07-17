@@ -717,3 +717,364 @@ export function validateMuscleStatus({ muscleStatus, frequency, level, muscleGro
   }
   return { warnings, focusCount, totalSets, weeklyCap };
 }
+
+/* ====================================================================
+   PROGRAM GENERATOR — port fidèle de generateProgram (v40)
+   ==================================================================== */
+
+const genUid = () => 'id-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now();
+
+export const REP_COMPOUND = [6, 10];
+export const REP_ACCESSORY = [10, 15];
+export const MAX_SETS_PER_MUSCLE_PER_SESSION = 8;
+export const MAX_EXOS_PER_SESSION = 9;
+export const MAX_SETS_PER_SESSION = 24;
+export const MAX_SETS_COMPOUND = 3; // jamais 4 sets d'un polyarticulaire
+export const MAX_SETS_ACCESSORY = 4;
+export const MIN_SETS_COMPOUND = 2;
+export const MIN_SETS_ACCESSORY = 1;
+
+export const SPLIT_TEMPLATES: Record<number, Any[]> = {
+  2: [
+    { name: 'Full Body A', focus: ['push', 'legs_quad', 'pull', 'calves', 'core'] },
+    { name: 'Full Body B', focus: ['pull', 'legs_post', 'push', 'shoulders', 'calves'] },
+  ],
+  3: [
+    { name: 'Full Body A', focus: ['push', 'legs_quad', 'pull', 'calves', 'core'] },
+    { name: 'Full Body B', focus: ['pull', 'legs_post', 'shoulders', 'core'] },
+    { name: 'Full Body C', focus: ['push', 'legs_quad', 'arms', 'calves'] },
+  ],
+  4: [
+    { name: 'Upper A', focus: ['push', 'pull', 'shoulders', 'arms', 'core'] },
+    { name: 'Lower A', focus: ['legs_quad', 'legs_post', 'calves', 'glutes'] },
+    { name: 'Upper B', focus: ['pull', 'push', 'shoulders', 'arms'] },
+    { name: 'Lower B', focus: ['legs_post', 'legs_quad', 'calves', 'glutes', 'core'] },
+  ],
+  5: [
+    { name: 'Upper', focus: ['push', 'pull', 'shoulders', 'arms', 'core'] },
+    { name: 'Lower A', focus: ['legs_quad', 'legs_post', 'calves'] },
+    { name: 'Push', focus: ['push', 'shoulders', 'triceps'] },
+    { name: 'Pull', focus: ['pull', 'biceps', 'rear_delt', 'core'] },
+    { name: 'Lower B', focus: ['legs_post', 'legs_quad', 'calves', 'glutes'] },
+  ],
+  6: [
+    { name: 'Push A', focus: ['push', 'shoulders', 'triceps'] },
+    { name: 'Pull A', focus: ['pull', 'biceps', 'rear_delt', 'core'] },
+    { name: 'Legs A', focus: ['legs_quad', 'legs_post', 'calves'] },
+    { name: 'Push B', focus: ['push', 'shoulders', 'triceps', 'core'] },
+    { name: 'Pull B', focus: ['pull', 'biceps', 'rear_delt'] },
+    { name: 'Legs B', focus: ['legs_post', 'legs_quad', 'glutes', 'calves'] },
+  ],
+};
+
+export const FOCUS_TO_GROUPS: Record<string, string[]> = {
+  push: ['Pectoraux', 'Triceps', 'Épaules'],
+  pull: ['Dos', 'Biceps'],
+  shoulders: ['Épaules'],
+  rear_delt: ['Épaules'],
+  triceps: ['Triceps'],
+  biceps: ['Biceps'],
+  arms: ['Biceps', 'Triceps'],
+  legs_quad: ['Quadriceps'],
+  legs_post: ['Ischios', 'Fessiers'],
+  calves: ['Mollets'],
+  glutes: ['Fessiers'],
+  core: ['Abdos', 'Lombaires'],
+};
+
+function sessionsForGroup(split: Any[], group: string): number[] {
+  return split
+    .map((sess, i) => {
+      const groups = new Set<string>();
+      (sess.focus || []).forEach((f: string) => (FOCUS_TO_GROUPS[f] || []).forEach((g) => groups.add(g)));
+      return groups.has(group) ? i : null;
+    })
+    .filter((i): i is number => i !== null);
+}
+
+function exoBankByGroup(lib: Any[], muscleGroups: string[]) {
+  const bank: Record<string, Any> = {};
+  muscleGroups.forEach((g) => {
+    const exos = lib.filter((l) => l.muscleGroup === g);
+    const bySub: Record<string, Any[]> = {};
+    exos.forEach((e) => {
+      const k = e.subGroup || '_';
+      if (!bySub[k]) bySub[k] = [];
+      bySub[k].push(e);
+    });
+    Object.keys(bySub).forEach((k) => bySub[k].sort((a, b) => (b.priority || 5) - (a.priority || 5)));
+    bank[g] = {
+      compounds: exos.filter((l) => l.compound).sort((a, b) => (b.priority || 5) - (a.priority || 5)),
+      accessories: exos.filter((l) => !l.compound).sort((a, b) => (b.priority || 5) - (a.priority || 5)),
+      all: exos.sort((a, b) => (b.priority || 5) - (a.priority || 5)),
+      bySub,
+    };
+  });
+  return bank;
+}
+
+export function generateProgram({
+  level = 'intermediaire',
+  muscleStatus,
+  focus,
+  frequency = 4,
+  priorities = [],
+  subGroupSplit = {},
+  lib,
+  muscleGroups,
+  name,
+}: Any): Any {
+  const tplSplit = SPLIT_TEMPLATES[frequency] || SPLIT_TEMPLATES[4];
+  const groups: string[] = muscleGroups || MUSCLE_GROUPS_DEFAULT;
+  const resolvedStatus = resolveMuscleStatus({ muscleStatus, focus, priorities, muscleGroups: groups });
+  const targets = computeVolumeTargets({ level, muscleStatus: resolvedStatus, muscleGroups: groups });
+  const bank = exoBankByGroup(lib, groups);
+
+  // Cibles sous-groupes = split hebdo demandé (custom ou défaut)
+  const subGroupTargets: Record<string, Record<string, number>> = {};
+  groups.forEach((g) => {
+    const customPct = subGroupSplit[g] || null;
+    const split = splitVolumeBySubGroups(g, targets[g] || 0, customPct);
+    if (split) subGroupTargets[g] = split;
+  });
+
+  // Tracker du volume déjà placé par sous-groupe sur tout le programme — biaise le picker
+  const programSubUsed: Record<string, Record<string, number>> = {};
+
+  const focusGroups = new Set(groups.filter((g) => resolvedStatus[g] === 'focus'));
+
+  const sessionsByGroup: Record<string, number[]> = {};
+  groups.forEach((g) => {
+    sessionsByGroup[g] = sessionsForGroup(tplSplit, g);
+  });
+
+  const idealPerSession: Record<string, number[]> = {};
+  groups.forEach((g) => {
+    idealPerSession[g] = tplSplit.map(() => 0);
+    const sIdxs = sessionsByGroup[g];
+    const total = targets[g] || 0;
+    if (total === 0 || sIdxs.length === 0) return;
+    const perSession = Math.min(MAX_SETS_PER_MUSCLE_PER_SESSION, Math.ceil(total / sIdxs.length));
+    let remaining = Math.min(total, perSession * sIdxs.length);
+    sIdxs.forEach((si) => {
+      if (remaining <= 0) return;
+      const s = Math.min(perSession, remaining);
+      idealPerSession[g][si] = s;
+      remaining -= s;
+    });
+  });
+
+  const MAJORS = new Set(['Pectoraux', 'Dos', 'Quadriceps', 'Ischios', 'Épaules']);
+  const sessions = tplSplit.map((sessTpl, si) => {
+    const groupsInSession = [...new Set<string>((sessTpl.focus || []).flatMap((f: string) => FOCUS_TO_GROUPS[f] || []))].filter(
+      (g) => idealPerSession[g]?.[si] > 0 && groups.includes(g)
+    );
+
+    // Trier : focus d'abord, puis majors, puis autres (par cible décroissante)
+    const ordered = [...groupsInSession].sort((a, b) => {
+      const ap = focusGroups.has(a),
+        bp = focusGroups.has(b);
+      if (ap !== bp) return ap ? -1 : 1;
+      const am = MAJORS.has(a),
+        bm = MAJORS.has(b);
+      if (am !== bm) return am ? -1 : 1;
+      return (targets[b] || 0) - (targets[a] || 0);
+    });
+
+    // Scaling : focus + majors protégés, reste scalé
+    const protectedGroups = ordered.filter((g) => focusGroups.has(g) || MAJORS.has(g));
+    const secondaryGroups = ordered.filter((g) => !focusGroups.has(g) && !MAJORS.has(g));
+    const protectedPlanned = protectedGroups.reduce((a, g) => a + idealPerSession[g][si], 0);
+    const secondaryPlanned = secondaryGroups.reduce((a, g) => a + idealPerSession[g][si], 0);
+
+    const adjusted: Record<string, number> = {};
+    if (protectedPlanned > MAX_SETS_PER_SESSION) {
+      const scale = MAX_SETS_PER_SESSION / (protectedPlanned + secondaryPlanned);
+      ordered.forEach((g) => {
+        adjusted[g] = Math.max(2, Math.round(idealPerSession[g][si] * scale));
+      });
+    } else {
+      protectedGroups.forEach((g) => {
+        adjusted[g] = idealPerSession[g][si];
+      });
+      const remaining = Math.max(0, MAX_SETS_PER_SESSION - protectedPlanned);
+      const scaleSec = secondaryPlanned > 0 && remaining < secondaryPlanned ? remaining / secondaryPlanned : 1;
+      secondaryGroups.forEach((g) => {
+        const v = Math.round(idealPerSession[g][si] * scaleSec);
+        adjusted[g] = v >= 1 ? v : 0;
+      });
+      // Pass de récupération : réinjecter 1 série min aux groupes skipped si budget restant
+      let used = Object.values(adjusted).reduce((a, v) => a + v, 0);
+      const dropped = secondaryGroups.filter((g) => adjusted[g] === 0);
+      dropped.sort((a, b) => (targets[b] || 0) - (targets[a] || 0));
+      for (const g of dropped) {
+        if (used + 1 > MAX_SETS_PER_SESSION) break;
+        adjusted[g] = 1;
+        used += 1;
+      }
+    }
+
+    const exercises: Any[] = [];
+    let totalSessionSets = 0;
+    const usedExoIds = new Set<string>();
+    const lowFreq = frequency <= 3;
+
+    for (const g of ordered) {
+      if (exercises.length >= MAX_EXOS_PER_SESSION) break;
+      const remaining = MAX_SETS_PER_SESSION - totalSessionSets;
+      if (remaining < MIN_SETS_ACCESSORY) break;
+
+      const setsForGroup = Math.min(adjusted[g] || 0, remaining, MAX_SETS_PER_MUSCLE_PER_SESSION);
+      if (setsForGroup < MIN_SETS_ACCESSORY) continue;
+
+      const b = bank[g];
+      if (!b || b.all.length === 0) continue;
+
+      let nExos: number;
+      if (setsForGroup >= 8 && b.accessories.length >= 2) nExos = 3;
+      else if (setsForGroup >= 5) nExos = 2;
+      else nExos = 1;
+
+      const picks: Any[] = [];
+      const subGroupsUsed = new Set<string>();
+
+      const subTgt = subGroupTargets[g] || {};
+      const progUsed = programSubUsed[g] || {};
+      const sortByDeficit = (list: Any[]) => {
+        return [...list].sort((a, b) => {
+          const aUsedNow = a.subGroup && subGroupsUsed.has(a.subGroup) ? 1 : 0;
+          const bUsedNow = b.subGroup && subGroupsUsed.has(b.subGroup) ? 1 : 0;
+          if (aUsedNow !== bUsedNow) return aUsedNow - bUsedNow;
+          const aDef = a.subGroup ? (subTgt[a.subGroup] || 0) - (progUsed[a.subGroup] || 0) : 0;
+          const bDef = b.subGroup ? (subTgt[b.subGroup] || 0) - (progUsed[b.subGroup] || 0) : 0;
+          if (aDef !== bDef) return bDef - aDef;
+          return (a.priority || 5) - (b.priority || 5);
+        });
+      };
+
+      // 1er pick : compound prioritaire (biaisé par déficit sous-groupe)
+      if (b.compounds.length > 0) {
+        const sortedCompounds = sortByDeficit(b.compounds.filter((e: Any) => !usedExoIds.has(e.id)));
+        const compound = sortedCompounds[0] || b.compounds[0];
+        picks.push({ exo: compound, type: 'compound' });
+        usedExoIds.add(compound.id);
+        if (compound.subGroup) subGroupsUsed.add(compound.subGroup);
+      } else if (b.accessories.length > 0) {
+        const sortedAcc = sortByDeficit(b.accessories.filter((e: Any) => !usedExoIds.has(e.id)));
+        const acc = sortedAcc[0] || b.accessories[0];
+        picks.push({ exo: acc, type: 'accessory' });
+        usedExoIds.add(acc.id);
+        if (acc.subGroup) subGroupsUsed.add(acc.subGroup);
+      }
+
+      // 2e pick : si freq basse → 2e compound ; sinon accessoire d'un subGroup différent
+      if (nExos >= 2 && picks.length === 1) {
+        let second: Any | undefined = undefined;
+        if (lowFreq && b.compounds.length >= 2) {
+          const pool = sortByDeficit(b.compounds.filter((e: Any) => !usedExoIds.has(e.id)));
+          second = pool[0];
+        }
+        if (!second && b.accessories.length > 0) {
+          const pool = sortByDeficit(b.accessories.filter((e: Any) => !usedExoIds.has(e.id)));
+          second = pool[0];
+        }
+        if (!second) {
+          const pool = sortByDeficit([...b.accessories, ...b.compounds].filter((e: Any) => !usedExoIds.has(e.id)));
+          second = pool[0];
+        }
+        if (second) {
+          picks.push({ exo: second, type: second.compound ? 'compound' : 'accessory' });
+          usedExoIds.add(second.id);
+          if (second.subGroup) subGroupsUsed.add(second.subGroup);
+        }
+      }
+
+      // 3e pick : accessoire d'un subGroup non encore travaillé
+      if (nExos >= 3 && picks.length === 2 && b.accessories.length > 0) {
+        const pool = sortByDeficit(b.accessories.filter((e: Any) => !usedExoIds.has(e.id)));
+        const third = pool[0];
+        if (third) {
+          picks.push({ exo: third, type: 'accessory' });
+          usedExoIds.add(third.id);
+          if (third.subGroup) subGroupsUsed.add(third.subGroup);
+        }
+      }
+
+      // Répartition des séries par pick (compounds prioritaires sur le budget)
+      const compoundPicks = picks.filter((p) => p.type === 'compound');
+      const accessoryPicks = picks.filter((p) => p.type === 'accessory');
+      const compoundShare = compoundPicks.length * MAX_SETS_COMPOUND;
+      let compoundBudget = Math.min(compoundShare, setsForGroup);
+      if (compoundPicks.length > 0 && accessoryPicks.length > 0) {
+        const minAccessory = Math.min(accessoryPicks.length, setsForGroup - compoundPicks.length * MIN_SETS_COMPOUND);
+        compoundBudget = Math.min(compoundBudget, setsForGroup - Math.max(0, minAccessory));
+      }
+      let accessoryBudget = Math.max(0, setsForGroup - compoundBudget);
+
+      const setsByPick = new Map<Any, number>();
+      compoundPicks.forEach((p, i) => {
+        const leftPicks = compoundPicks.length - i;
+        let s = Math.round(compoundBudget / leftPicks);
+        s = Math.max(MIN_SETS_COMPOUND, Math.min(MAX_SETS_COMPOUND, s));
+        setsByPick.set(p, s);
+        compoundBudget -= s;
+      });
+      accessoryPicks.forEach((p, i) => {
+        const leftPicks = accessoryPicks.length - i;
+        let s = Math.round(accessoryBudget / leftPicks);
+        s = Math.max(MIN_SETS_ACCESSORY, Math.min(MAX_SETS_ACCESSORY, s));
+        setsByPick.set(p, s);
+        accessoryBudget -= s;
+      });
+
+      picks.forEach((pick) => {
+        let sets = setsByPick.get(pick) || (pick.type === 'compound' ? MIN_SETS_COMPOUND : MIN_SETS_ACCESSORY);
+        if (pick.type === 'compound') sets = Math.min(sets, MAX_SETS_COMPOUND);
+        else sets = Math.min(sets, MAX_SETS_ACCESSORY);
+
+        if (exercises.length >= MAX_EXOS_PER_SESSION) return;
+        if (totalSessionSets + sets > MAX_SETS_PER_SESSION) {
+          sets = MAX_SETS_PER_SESSION - totalSessionSets;
+          const minOk = pick.type === 'compound' ? MIN_SETS_COMPOUND : MIN_SETS_ACCESSORY;
+          if (sets < minOk) return;
+        }
+        exercises.push({
+          id: genUid(),
+          sets,
+          muscleGroup: g,
+          subGroup: pick.exo.subGroup || null,
+          choices: [{ exId: pick.exo.id, weight: '', machine: '', muscleGroup: g, subGroup: pick.exo.subGroup || null }],
+          repRange: pick.type === 'compound' ? REP_COMPOUND : REP_ACCESSORY,
+          isCompound: pick.type === 'compound',
+          history: [],
+        });
+        totalSessionSets += sets;
+        if (pick.exo.subGroup) {
+          if (!programSubUsed[g]) programSubUsed[g] = {};
+          programSubUsed[g][pick.exo.subGroup] = (programSubUsed[g][pick.exo.subGroup] || 0) + sets;
+        }
+      });
+    }
+
+    return { id: genUid(), name: sessTpl.name, exercises };
+  });
+
+  return {
+    id: genUid(),
+    name: name || `Auto · ${frequency}j`,
+    level,
+    frequency,
+    muscleStatus: resolvedStatus,
+    priorities, // legacy compat
+    focus, // legacy compat
+    subGroupSplit, // répartition % custom par sous-groupe
+    sessions,
+    volumeTargets: {
+      program: targets,
+      subGroups: subGroupTargets,
+      sessions: {},
+    },
+    createdAt: Date.now(),
+    auto: true,
+  };
+}

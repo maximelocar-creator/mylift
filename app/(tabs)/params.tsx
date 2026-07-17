@@ -30,6 +30,7 @@ export default function Params() {
   const { profile, programs, exerciseLib, muscleGroups, subGroups, pendingSync } = data;
 
   const [libOpen, setLibOpen] = useState(false);
+  const [newProgMenuOpen, setNewProgMenuOpen] = useState(false);
   const [newProgOpen, setNewProgOpen] = useState(false);
   const [newProgName, setNewProgName] = useState("");
   const [libMuscle, setLibMuscle] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export default function Params() {
             Aucun programme. Importe ton backup v40 ou crée un programme vide.
           </Text>
         )}
-        <Btn kind="ghost" sm full onPress={() => { setNewProgName(""); setNewProgOpen(true); }}>
+        <Btn kind="ghost" sm full onPress={() => setNewProgMenuOpen(true)}>
           ＋ Nouveau programme
         </Btn>
       </View>
@@ -214,6 +215,33 @@ export default function Params() {
       <Pressable onPress={() => supabase.auth.signOut()} style={{ minHeight: 44, justifyContent: "center", marginTop: 8 }}>
         <Text style={{ color: C.ink3, textAlign: "center" }}>Se déconnecter</Text>
       </Pressable>
+
+      {/* Sheet : menu nouveau programme (port v40) */}
+      <Sheet open={newProgMenuOpen} onClose={() => setNewProgMenuOpen(false)} title="Nouveau programme">
+        <Btn
+          full
+          onPress={() => {
+            haptic("medium");
+            setNewProgMenuOpen(false);
+            router.push("/generator");
+          }}
+          style={{ marginBottom: 8 }}
+        >
+          🧠 Générateur auto
+        </Btn>
+        <Btn
+          kind="ghost"
+          full
+          onPress={() => {
+            haptic("light");
+            setNewProgMenuOpen(false);
+            setNewProgName("");
+            setNewProgOpen(true);
+          }}
+        >
+          ✏️ Programme vide
+        </Btn>
+      </Sheet>
 
       {/* Sheet : nouveau programme vide */}
       <Sheet open={newProgOpen} onClose={() => setNewProgOpen(false)} title="Nom du programme">

@@ -53,7 +53,8 @@ function loadV40(): Any {
       `;return { exoKey, exoKeyNoModel, e1RM, isValidSet, topSetOf, exoScore, tonnageExo,
         tonnageSession, setsCountSession, scanExoPRs, exoTimeline, progressionSummary,
         muscleIndexTimeline, muscleIndexSummary, computeVolumeTargets, splitVolumeBySubGroups,
-        recommendedSession, hydrateSessionExos, exoMuscleGroup, norm, iso, daysAgo };`
+        recommendedSession, hydrateSessionExos, exoMuscleGroup, norm, iso, daysAgo,
+        generateProgram, SEED_LIB, MUSCLE_GROUPS_DEFAULT, SUB_GROUPS_DEFAULT };`
   );
   return wrapper(ReactStub, ReactDOMStub, documentStub, windowStub, navigatorStub, localStorageStub);
 }
@@ -432,6 +433,35 @@ for (let f = 0; f < 30; f++) {
   check(`fuzz#${f} recommendedSession`, v40.recommendedSession(PROGRAM, logs), ported.recommendedSession(PROGRAM, logs));
   check(`fuzz#${f} hydrateSessionExos`, v40.hydrateSessionExos(PROGRAM.sessions[0], LIB, logs), ported.hydrateSessionExos(PROGRAM.sessions[0], LIB, logs));
 }
+
+/* ------------------------------------------------------------------ */
+/* 9. Générateur de programme — structure identique (ids normalisés)   */
+/* ------------------------------------------------------------------ */
+function stripIds(x: any): any {
+  if (Array.isArray(x)) return x.map(stripIds);
+  if (x && typeof x === 'object') {
+    const out: Any = {};
+    for (const [k, v] of Object.entries(x)) {
+      if (k === 'id' || k === 'createdAt') continue; // non déterministes
+      out[k] = stripIds(v);
+    }
+    return out;
+  }
+  return x;
+}
+
+const GEN_CASES: Any[] = [
+  { level: 'intermediaire', frequency: 4 },
+  { level: 'debutant', frequency: 2 },
+  { level: 'confirme', frequency: 6, muscleStatus: { Pectoraux: 'focus', Dos: 'focus', Épaules: 'progression' } },
+  { level: 'intermediaire', frequency: 3, priorities: ['Dos'] },
+  { level: 'intermediaire', frequency: 5, subGroupSplit: { Épaules: { Antérieur: 10, Latéral: 70, Arrière: 20 } } },
+];
+GEN_CASES.forEach((cfg, i) => {
+  const a = v40.generateProgram({ ...cfg, lib: v40.SEED_LIB, muscleGroups: v40.MUSCLE_GROUPS_DEFAULT, name: 'Test' });
+  const b = ported.generateProgram({ ...cfg, lib: v40.SEED_LIB, muscleGroups: v40.MUSCLE_GROUPS_DEFAULT, name: 'Test' });
+  check(`generateProgram #${i}`, stripIds(a), stripIds(b));
+});
 
 /* ------------------------------------------------------------------ */
 console.log(`\nParité v40 ↔ port TS : ${passed} OK, ${failed} échec(s)`);

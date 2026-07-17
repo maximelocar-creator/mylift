@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, R, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
@@ -236,6 +237,7 @@ function HistoryDetail({ log, onDelete }: { log: Any; onDelete: () => void }) {
 /* ------------------------------------------------------------------ */
 export default function Journal() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const data = useData();
   const { journalLogs, programs, profile, exerciseLib, sessionNotes, ready } = data;
   const { activeSession, setActiveSession } = useActiveSession();
@@ -334,11 +336,18 @@ export default function Journal() {
       </View>
 
       {!currentProgram && (
-        <View style={{ alignItems: "center", padding: 40 }}>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink2, marginBottom: 4 }}>Pas de programme actif</Text>
-          <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
-            Va dans Réglages pour créer un programme, ou importe ton backup v40.
+        <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
+          <Text style={{ fontSize: 32 }}>🏋️</Text>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink1 }}>Pas encore de programme</Text>
+          <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", marginBottom: 12 }}>
+            Crée ton premier programme : le générateur construit tes séances selon ton niveau et tes muscles prioritaires.
           </Text>
+          <Btn full onPress={() => router.push("/generator")}>
+            🧠 Générer mon programme
+          </Btn>
+          <Btn kind="ghost" full onPress={() => router.navigate("/params")}>
+            Créer un programme vide
+          </Btn>
         </View>
       )}
 
