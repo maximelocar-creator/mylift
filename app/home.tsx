@@ -4,6 +4,7 @@ import {
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { importBackup, ImportResult } from "@/db/importBackup";
 import { syncNow } from "@/db/sync";
@@ -13,6 +14,7 @@ import { C, R, mono } from "@/lib/theme";
 type Profile = { id: string; username: string; current_program_id: string | null };
 
 export default function Home() {
+  const insets = useSafeAreaInsets();
   const data = useData();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -94,7 +96,7 @@ export default function Home() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: C.bg0 }}
-      contentContainerStyle={{ padding: 20, paddingTop: 70, paddingBottom: 60 }}
+      contentContainerStyle={{ padding: 20, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }}
     >
       <Text style={{ color: C.ink0, fontSize: 28, fontWeight: "800", marginBottom: 24 }}>
         My<Text style={{ color: C.accent }}>Lift</Text>

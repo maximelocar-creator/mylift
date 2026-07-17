@@ -29,7 +29,7 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
   return (
     <Modal visible transparent={false} animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: C.bg0 }}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 50, paddingBottom: 140, alignItems: "center" }}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 50, paddingBottom: insets.bottom + 110, alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: C.success, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: "#062", fontSize: 11, fontWeight: "900" }}>✓</Text>

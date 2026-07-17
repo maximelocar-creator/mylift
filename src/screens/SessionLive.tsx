@@ -7,7 +7,7 @@
 //  - PRs calculés à la validation d'UNE série (computePRsForSet) et à la
 //    finalisation (computePRs) — sémantique poids brut, PAS e1RM
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, Modal } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -718,7 +718,8 @@ export default function SessionLive({
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
       <LWBOverlay pr={lwbPR} onClose={() => setLwbPR(null)} />
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 8, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
         {/* HEADER COMPACT 1 LIGNE */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <Pressable onPress={() => router.navigate("/")} hitSlop={8} style={{ padding: 4 }}>
@@ -895,6 +896,7 @@ export default function SessionLive({
           </Btn>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ============ EXO SHEET — popup unifiée ============ */}
       <Sheet open={exoSheetOpen} onClose={() => setExoSheetOpen(false)} title={currentExo.exName}>

@@ -6,7 +6,7 @@
 // Toutes les écritures passent par store.updateProgram (copie mutée → diff SQLite
 // + queue de sync), sémantique identique au updateCurrentProgram v40.
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -389,7 +389,8 @@ export default function ProgramEditor() {
   const totalProgramTarget = Object.values(targets).reduce((a: number, v: any) => a + (parseInt(String(v)) || 0), 0);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg0 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }} keyboardShouldPersistTaps="handled">
       {/* Retour */}
       <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 14, minHeight: 44 }}>
         <Ionicons name="chevron-back" size={16} color={C.ink2} />
@@ -1033,5 +1034,6 @@ export default function ProgramEditor() {
         message={delExoOpen ? `Retirer « ${delExoOpen.exName} » de cette séance ? Les séries déjà enregistrées dans le journal ne sont pas affectées.` : ""}
       />
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

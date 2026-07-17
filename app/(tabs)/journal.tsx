@@ -312,7 +312,7 @@ export default function Journal() {
   const kicker = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()} · ${DOW_FR[(today.getDay() + 6) % 7]}`;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
       {/* Header */}
       <View style={{ marginBottom: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>

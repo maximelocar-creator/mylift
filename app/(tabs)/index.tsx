@@ -138,7 +138,7 @@ export default function Dashboard() {
   if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
       {/* Header */}
       <View style={{ marginBottom: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>

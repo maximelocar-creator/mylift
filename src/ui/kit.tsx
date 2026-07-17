@@ -2,7 +2,7 @@
 // Sheets iOS natives (spring physique + drag-to-dismiss rubber-band via
 // Reanimated/Gesture Handler), boutons, chips, labels, skeletons, statut sync.
 import { ReactNode, useEffect, useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView, TextInput, ViewStyle, TextStyle, useWindowDimensions } from "react-native";
+import { View, Text, Pressable, Modal, ScrollView, TextInput, ViewStyle, TextStyle, useWindowDimensions, KeyboardAvoidingView, Platform } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -178,6 +178,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
       <Animated.View style={[{ flex: 1, backgroundColor: "rgba(0,0,0,.55)" }, backdropStyle]}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
       </Animated.View>
@@ -218,6 +219,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
           {children}
         </ScrollView>
       </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

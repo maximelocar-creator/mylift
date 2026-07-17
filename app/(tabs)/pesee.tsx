@@ -53,7 +53,7 @@ export default function Pesee() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
       <View style={{ marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Pesée.</Text>
         <Btn sm onPress={() => setAddOpen(true)}>

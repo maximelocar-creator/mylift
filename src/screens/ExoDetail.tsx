@@ -144,7 +144,7 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}>
       <Pressable onPress={onBack} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 14, minHeight: 44 }}>
         <Ionicons name="chevron-back" size={16} color={C.ink2} />
         <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Progression</Text>
