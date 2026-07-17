@@ -1,10 +1,10 @@
 // Profil (le sien) — avatar, username, ville, bio, compteurs, QR de profil,
 // listes followers/following, accès édition et réglages (import backup inclus,
 // discret, dans Réglages).
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import { C, L, mono } from "@/lib/theme";
@@ -32,18 +32,23 @@ export default function Profil() {
   const [listOpen, setListOpen] = useState(false);
   const [listRows, setListRows] = useState<Any[]>([]);
   const [removeTarget, setRemoveTarget] = useState<Any | null>(null);
-  const [myPosts, setMyPosts] = useState<Any[]>([]);
+  const [myPosts, setMyPosts] = useState<Any[] | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!userId) return;
     try {
-      const p = await social.fetchProfile(userId!);
+      const p = await social.fetchProfile(userId);
       setProfile(p);
-      setMyPosts(await social.fetchUserPosts(userId!));
+      setMyPosts(await social.fetchUserPosts(userId));
     } catch {}
-  };
-  useEffect(() => {
-    load();
   }, [userId]);
+  // Recharge à chaque retour sur l'onglet — un post publié depuis le récap
+  // doit apparaître ici sans pull-to-refresh
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -113,23 +118,18 @@ export default function Profil() {
           ▦ Mon QR code
         </Btn>
       </View>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Btn kind="ghost" onPress={() => router.push("/search")} style={{ flex: 1 }}>
-          🔍 Rechercher
-        </Btn>
-        <Btn kind="ghost" onPress={() => router.push("/pesee")} style={{ flex: 1 }}>
-          ⚖️ Pesée
-        </Btn>
-      </View>
-
       {/* Mes posts — même carte que partout ailleurs */}
-      {myPosts.length > 0 && (
-        <View style={{ marginTop: 20 }}>
-          {myPosts.map((p: Any, i: number) => (
-            <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} />
-          ))}
-        </View>
+      <Text style={{ fontSize: 13, fontWeight: "800", color: C.ink2, textTransform: "uppercase", letterSpacing: 1, marginTop: 24, marginBottom: 10 }}>
+        Mes posts
+      </Text>
+      {myPosts !== null && myPosts.length === 0 && (
+        <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", padding: 20, lineHeight: 18 }}>
+          Aucun post pour l'instant. Partage une séance depuis le récap de fin, ou un lift depuis l'écran d'un exo.
+        </Text>
       )}
+      {(myPosts ?? []).map((p: Any, i: number) => (
+        <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} />
+      ))}
 
       {/* QR de profil */}
       <Sheet open={qrOpen} onClose={() => setQrOpen(false)} title="Mon QR code">
