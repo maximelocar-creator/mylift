@@ -64,3 +64,199 @@ Direct, factuel, sans blabla. Corrige les erreurs en itérant seul (relance,
 ajuste, revérifie) plutôt que de proposer plusieurs pistes à valider — sauf
 choix structurant qui touche aux invariants ci-dessus, où là il faut arrêter et
 demander confirmation.
+
+## Feuille de route
+
+Objectif final : publication App Store complète. Maxime a tranché : pas de
+sortie par palier, tout le social doit être prêt avant la première soumission
+publique. Chaque phase se termine par un test interne réel (Expo Go pendant le
+dev, TestFlight dès que possible) avec un rapport de vérification factuel
+(comptages en base, résultats de tests, pas une affirmation non vérifiée) —
+pas de passage à la phase suivante sans validation explicite de Maxime.
+
+### Phase 0 — Fondations (terminée)
+- Auth Supabase email/mot de passe (confirmation email désactivée en dev)
+- Schéma complet en prod : profiles, follows, posts, likes, comments,
+  notifications, exercises, user_exercise_overrides, exercise_models,
+  programs, program_sessions, program_exercises, program_model_targets,
+  workout_logs (immuable via trigger), log_exercises, log_sets, workout_prs,
+  weights, session_notes, muscle_groups, sub_groups — RLS sur chaque table
+  (voir supabase/migrations/0002_rls.sql pour le détail des policies)
+- Import backup v40 → Supabase avec recomptage de parité affiché à l'écran
+  (exercices, machines, programmes, séances, séries, PRs, pesées, tonnage
+  total en kg)
+- Décisions verrouillées à ne jamais rouvrir sans validation explicite :
+  IDs conservés tels quels, pas de champ "à jeun" sur les pesées, préférences
+  UI locales au device (jamais en base), logs immuables après validation,
+  machines (exercise_models) strictement privées (jamais lisibles par un
+  autre compte, même dans un scénario social ouvert)
+
+### Phase 1 — Solo complet (en cours)
+Port fidèle du parcours individuel depuis v40-reference/app.jsx. C'est une
+spécification qui marche, pas un brouillon — toute divergence de comportement
+doit être un choix explicite validé, jamais une approximation.
+
+**Couche logique (src/core/mylift.ts)** — fonctions pures, testées
+unitairement contre des cas réels tirés de app.jsx avant de construire quoi
+que ce soit dessus :
+- `exoKey` / `exoKeyNoModel` : identité exo×machine, format `lib:<exId>` (+
+  `/m:<modelId>` si présent) ou `name:<slug>` en fallback ; accepte `modelId`
+  (logs) et `activeModelId` (séance live) comme équivalents
+- `e1RM` (Epley, poids×(1+reps/30), fiable jusqu'à ~12 reps)
+- `scanExoPRs` : scan chronologique (tri date puis id), All-Time PR = nouveau
+  poids max avec EPS 0.05, jamais sur la toute première série d'un exo ; Rep
+  PR = poids déjà touché ET reps > max observé à ce poids exact ; les deux
+  indépendants, source de vérité (workout_prs n'est qu'un cache d'affichage)
+- `muscleIndexTimeline` / `muscleIndexSummary` : baseline = e1RM du premier
+  point de la période = 100, indices suivants = e1RM/baseline×100, moyenne
+  par date, lissage moyenne mobile fenêtre 7 (rétrécie en début de série),
+  delta = indice lissé final − 100, calculé uniquement sur les exo×models à
+  ≥2 points
+- `progressionSummary`, `computeVolumeTargets`, `splitVolumeBySubGroups`,
+  `recommendedSession`, `hydrateSessionExos`, `exoMuscleGroup` (résolution :
+  lib d'abord, puis snapshot, puis match par nom — ordre à préserver)
+
+**Couche données locale** : expo-sqlite en miroir exact du schéma Supabase.
+Écriture locale d'abord systématiquement, queue de sync en arrière-plan vers
+Supabase (LWW en cas de conflit). Une séance en cours ne doit jamais pouvoir
+se perdre en cas de coupure réseau ou de fermeture d'app.
+
+**Écran Journal**
+- Liste chronologique des séances passées (depuis SQLite local, pas
+  d'attente réseau)
+- Lancement d'une séance depuis un programme existant → hydrateSessionExos
+- Édition/suppression d'une séance loguée (delete autorisé par l'owner,
+  update bloqué par le trigger d'immuabilité côté serveur — gérer ce cas
+  proprement côté UI, jamais un crash silencieux)
+
+**Écran Séance live** (le plus critique, reproduire précisément la v40) :
+- Header compact 1 ligne : retour vers journal, dot vert indiquant séance
+  active, nom de la séance, chrono global, bouton Annuler rouge, bouton Fin
+  orange
+- Carte exo compacte : tap ouvre une popup ; variantes planifiées visibles
+  sous forme "ou X", "ou Y" en orange (--accent-hi), max 2 visibles puis
+  "ou N autres" ; pas de swipe, pas de barre de pills
+- Popup exo unifiée : section Variantes (radio select sur les choix du
+  programme + bouton "Ajouter variante biblio" avec picker filtré par muscle
+  group) + section Séance (liste de tous les exos de la séance en cours,
+  navigation directe)
+- Timer de repos : gros, central, cible 2 minutes par défaut, ajustable par
+  +30s, progress bar visuelle, démarrage TOUJOURS manuel (jamais automatique
+  au clic sur valider une série)
+- Ligne "la dernière fois : ..." recalculée dynamiquement à chaque switch de
+  variante (pas mise en cache au chargement de l'écran)
+- Séries empilées verticalement, validation une à une, série suivante
+  verrouillée (grisée, non interactive) tant que la précédente n'est pas
+  validée
+- Cibles de poids NON affichées dans la popup variantes (juste le nom de
+  l'exo/la machine)
+- Aucun hint "tap pour ouvrir" — l'UI doit être auto-évidente
+- Fin de séance : écran de récap post-séance avec les PRs mis en avant
+
+**Écran Progrès + Dashboard (fusionnés, une seule source de calcul)**
+Actuellement livrés comme deux écrans copy-pastés qui ne se parlent pas —
+à corriger : si un chiffre apparaît sur les deux (tonnage, streak, nombre de
+séances), il doit venir du même appel à src/core/mylift.ts, jamais recalculé
+deux fois avec une logique différente.
+- Dashboard : KPI hero switchable par l'utilisateur, séances de la semaine,
+  PRs récents, volume, streak, carte Pesée cliquable menant à l'écran Pesée
+- Progrès / Analyse : toggle Muscles / Exos
+  - Vue Muscle : tabs sous-muscles, courbe lissée orange + courbe brute en
+    superposition, gradient area fill sous la courbe, baseline pointillée à
+    l'indice 100, scrubber tactile pour lire un point précis
+  - Vue Exo (ExoDetail) : courbe par model individuel + onglet "Tout" avec
+    courbe index unifiée (même composant que MuscleDetailChart), "Tout" par
+    défaut si l'exo a plusieurs models enregistrés
+
+**Écran Pesée** : liste chronologique, graphique, delta entre pesées,
+ajout/édition/suppression (pas de notion "à jeun" — décision verrouillée)
+
+**Édition de programme** (actuellement absente, à construire) : CRUD complet
+sur programs/program_sessions/program_exercises/program_model_targets —
+ajouter/retirer une séance, un exo dans une séance, une variante planifiée,
+modifier les cibles de poids par machine. Écriture locale + sync comme le
+reste. Sans cet écran l'app est inutilisable au quotidien : impossible de
+faire évoluer un programme dans le temps.
+
+**Réglages** : bibliothèque d'exercices (liste, ajout, rename avec
+propagation du nouveau nom aux snapshots journalLogs/programs/activeSession,
+zéro perte de données), gestion des groupes/sous-groupes musculaires, accès
+à l'import backup (voir plus bas). Peut rester plus sommaire que les écrans
+ci-dessus dans cette passe — fonctionnel mais pas peaufiné, on itère après.
+
+**Statut du parcours d'entrée actuel — à ne pas confondre avec l'onboarding
+définitif** : l'écran d'import backup existant est un outil de migration
+interne, utilisé uniquement par Maxime pour rapatrier son historique v40.
+Ce n'est PAS le parcours prévu pour un futur utilisateur qui n'a jamais rien
+sur MyLift. Pour cette phase : isoler l'import derrière un point d'accès
+discret et séparé (ex. lien en bas de l'écran de login, jamais une étape
+obligatoire), sans lui donner le même niveau de finition que le login
+standard. Le vrai onboarding grand public (créer un compte → créer son
+premier programme depuis zéro → premier lancement guidé) est un chantier de
+la Phase 2, pas de maintenant.
+
+**UI/UX — doit se sentir natif Apple, pas porté du web** :
+- Transitions d'écran natives (push/pop iOS standard via
+  expo-router/react-native-screens), jamais un fade générique géré à la main
+- Bottom sheets en spring physique (react-native-reanimated +
+  react-native-gesture-handler), drag-to-dismiss avec rubber-band en fin de
+  course — reproduire le comportement CSS de la v40, pas l'approximer
+  (plugin reanimated déclaré en dernier dans babel.config.js, exigence
+  stricte de la lib)
+- Retour haptique (expo-haptics) sur validation de série, sur détection de
+  PR, sur swipe de suppression — aucune action importante silencieuse
+- Jamais d'écran blanc ou de spinner nu pendant un chargement : skeleton
+  screens ou transition douce
+- Indicateur de statut réseau/sync discret et non intrusif (synchronisé / en
+  cours / hors ligne) — l'app a maintenant un backend, ça doit se sentir
+  sans être anxiogène
+- Tous les styles via src/lib/theme.ts (tokens DA : bg0-3, ink0-3, accent,
+  accentHi, accentLo, gold, success, danger, rayons, durées de spring),
+  aucune couleur en dur ; étendre ce fichier plutôt que hardcoder dans les
+  composants
+- Chiffres en tabular-nums partout, touch targets ≥44px minimum
+
+### Phase 2 — Profils et découverte
+- Onboarding grand public réel : création de compte → choix username → soit
+  import d'un backup (cas Maxime) soit création d'un premier programme vide
+  guidée (cas nouvel utilisateur)
+- Profils publics minimaux : username, ville, bio (≤160 car.), avatar,
+  compteurs (followers/following/séances) — lecture publique en RLS, pas
+  d'exposition des données d'entraînement
+- Recherche d'utilisateurs par username
+- Follow/follower avec statut pending/accepted (compte privé par défaut,
+  acceptation manuelle par le following)
+- QR code de profil personnel pour se suivre en présentiel
+
+### Phase 3 — Feed et partage
+- Création de post depuis le récap post-séance (partage opt-in, jamais
+  automatique) ou depuis une carte PR spécifique
+- Deux types de post : séance complète (log_id) ou lift ponctuel (lift_ref
+  jsonb, exo+PR isolé)
+- Feed chronologique des comptes suivis acceptés + ses propres posts
+- Respect strict de la confidentialité des machines : un post peut montrer
+  un exo et une performance, jamais le nom de la machine personnelle
+  associée (exercise_models reste strictement privé même exposé via un post)
+
+### Phase 4 — Interactions sociales
+- Likes sur posts (visibles uniquement si le post l'est selon RLS)
+- Commentaires (≤500 caractères)
+- Notifications : nouveau follower, follow accepté, like, commentaire — table
+  notifications déjà en place en Phase 0, à câbler côté UI + déclenchement
+
+### Phase 5 — Mise en production
+- Conformité RGPD : suppression de compte en cascade complète (vérifier que
+  chaque table avec owner_id a bien un ON DELETE CASCADE, déjà le cas dans
+  le schéma), export de données personnelles sur demande
+- Modération de base : signalement de post/commentaire, table et flux minimal
+- Assets App Store : icône définitive, screenshots par taille d'écran
+  requise, description, mots-clés, politique de confidentialité hébergée
+- Build EAS de production (bundleIdentifier déjà fixé : com.maxime.mylift)
+- Distribution TestFlight interne pour validation finale par Maxime
+- Soumission App Store, gestion des éventuels rejets de revue
+
+Règle de progression stricte : ne jamais entamer une phase avant que la
+précédente ait un rapport de vérification factuel (comptages réels en base,
+résultats de tests unitaires, captures d'écran du comportement) validé
+explicitement par Maxime — une affirmation non vérifiée de la part de Claude
+Code ne suffit jamais à considérer une phase terminée.
