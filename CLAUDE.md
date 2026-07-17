@@ -48,7 +48,20 @@ Pièges appris sur ce projet (ne pas re-payer) :
 - Modals iOS : présenter une Modal pendant qu'une autre joue son animation de
   fermeture échoue SILENCIEUSEMENT. Pour enchaîner deux sheets, toujours passer
   par `afterSheetClose()` (src/ui/kit.tsx). Deux sheets empilées (l'une par-
-  dessus l'autre) fonctionnent ; c'est le swap rapide qui casse.
+  dessus l'autre) fonctionnent ; c'est le swap rapide qui casse. Payé 3 fois :
+  (a) PR + dépassement de cible dans le même tick en séance live (la popup
+  cible est mise en file et présentée après fermeture de la Modal PR),
+  (b) Partager depuis le détail d'une séance passée (fermer le détail PUIS
+  présenter le sélecteur). Jamais deux setXOpen(true) dans le même handler.
+- LayoutAnimation est INOPÉRANT sur la nouvelle architecture (Fabric) —
+  aucun effet, aucun warning. Pour animer un dépli/changement de hauteur :
+  Reanimated `layout={LinearTransition.springify()}` sur le conteneur +
+  entering/exiting sur le contenu (cf. carte séance du Journal).
+- react-native-share n'a PAS de natif dans Expo Go et son import jette une
+  Invariant Violation qui remonte au gestionnaire global MÊME sous try/catch
+  (redbox). Gate obligatoire AVANT le require :
+  `Constants.appOwnership === "expo"` (src/lib/instagram.ts). En build EAS
+  le module est autolinked et le chemin direct s'active tout seul.
 
 ## Invariants métier — NE JAMAIS DÉVIER
 
@@ -374,7 +387,19 @@ image partagé (bucket "posts", repli data-URI) ; export Instagram intégré
 post-publication (ShareCard tokens theme.ts, react-native-view-shot 1080px
 → expo-sharing, story 9:16 + carré). Les payloads lift_ref ne contiennent
 JAMAIS de modelId/nom de machine (strippé à la composition).
-Restent : likes/commentaires = Phase 4 (rien d'autre en 3).
+Évolutions actées ensuite (demandes Maxime) :
+- Partage : depuis le récap de fin ET depuis une séance passée du journal,
+  ShareSessionSheet propose « Séance complète » OU « Un lift précis »
+  (meilleure série par exo, PR signalé). Le principe « un seul post séance,
+  pas de spam » reste, mais le lift isolé est désormais offert aux deux
+  endroits (en plus de l'entrée ExoDetail « Meilleurs poids »).
+- Édition d'une séance passée : port du mode v40 « Modifier les séries »
+  (kg/reps/RIR). Persistance par repo.replaceWorkoutLog = DELETE +
+  réinsertion sous le même id (l'immuabilité serveur — trigger anti-UPDATE
+  — n'est PAS contournée ; la queue pousse delete→insert dans l'ordre).
+- Séance active (AsyncStorage) cloisonnée PAR COMPTE (clé suffixée uid).
+- Compte existant sur miroir local vide : attendre le pull avant ready
+  (sinon faux passage par l'onboarding).
 
 - Création de post depuis le récap post-séance (partage opt-in, jamais
   automatique) ou depuis une carte PR spécifique
