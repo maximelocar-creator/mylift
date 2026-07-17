@@ -133,7 +133,7 @@ export default function Search() {
                     <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>
                       @{r.username}
                     </Text>
-                    {!!r.city && <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>{r.city}</Text>}
+                    {!!r.ville && <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>{r.ville}</Text>}
                   </View>
                 </Pressable>
                 {st === "accepted" ? (

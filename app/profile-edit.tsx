@@ -72,7 +72,7 @@ export default function ProfileEdit() {
         setExisting(p);
         if (p) {
           setUsername(p.username || "");
-          setCity(p.city || "");
+          setCity(p.ville || "");
           setBio(p.bio || "");
         }
       })
@@ -149,7 +149,7 @@ export default function ProfileEdit() {
           avatar_url = "data:image/jpeg;base64," + small.base64;
         }
       }
-      const patch: Any = { username: u, city: city.trim() || null, bio: bio.trim().slice(0, 160) || null };
+      const patch: Any = { username: u, ville: city.trim() || null, bio: bio.trim().slice(0, 160) || null };
       if (avatar_url) patch.avatar_url = avatar_url;
       if (isCreation && !existing) {
         await social.createProfile(userId!, u);

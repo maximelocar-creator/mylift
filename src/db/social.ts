@@ -119,3 +119,17 @@ export async function fetchFollowing(me: string): Promise<Any[]> {
   if (error) throw new Error(error.message);
   return attachProfiles(data ?? [], "following_id");
 }
+
+/* ------------------------------------------------------------------ */
+/* Feed — posts des comptes suivis (accepted) + les siens              */
+/* Schéma réel : posts(id, owner_id, type, log_id, lift_ref, title,    */
+/* text, image_url, created_at)                                        */
+/* ------------------------------------------------------------------ */
+export async function fetchFeedPosts(me: string): Promise<Any[]> {
+  const { data: fol, error: folErr } = await supabase.from("follows").select("following_id").eq("follower_id", me).eq("status", "accepted");
+  if (folErr) throw new Error(folErr.message);
+  const ids = [me, ...(fol ?? []).map((f) => f.following_id)];
+  const { data, error } = await supabase.from("posts").select("*").in("owner_id", ids).order("created_at", { ascending: false }).limit(50);
+  if (error) throw new Error(error.message);
+  return attachProfiles(data ?? [], "owner_id");
+}

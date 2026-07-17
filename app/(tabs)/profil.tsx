@@ -84,9 +84,9 @@ export default function Profil() {
       <View style={{ alignItems: "center", marginBottom: 16 }}>
         <Avatar profile={profile} size={88} />
         <Text style={{ fontSize: 22, fontWeight: "800", color: C.ink0, marginTop: 12 }}>@{profile?.username || "…"}</Text>
-        {!!profile?.city && (
+        {!!profile?.ville && (
           <Text style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>
-            <Ionicons name="location-outline" size={12} color={C.ink3} /> {profile.city}
+            <Ionicons name="location-outline" size={12} color={C.ink3} /> {profile.ville}
           </Text>
         )}
         {!!profile?.bio && <Text style={{ fontSize: 13, color: C.ink1, marginTop: 8, textAlign: "center", lineHeight: 19, paddingHorizontal: 20 }}>{profile.bio}</Text>}
