@@ -10,7 +10,8 @@ import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
-import { Sheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, LINE, ACCENT_WASH } from "@/ui/kit";
+import { haptic } from "@/lib/haptics";
 
 export default function Params() {
   const insets = useSafeAreaInsets();
@@ -19,6 +20,8 @@ export default function Params() {
   const { profile, programs, exerciseLib, muscleGroups, subGroups, pendingSync } = data;
 
   const [libOpen, setLibOpen] = useState(false);
+  const [newProgOpen, setNewProgOpen] = useState(false);
+  const [newProgName, setNewProgName] = useState("");
   const [libMuscle, setLibMuscle] = useState<string | null>(null);
   const [addExoOpen, setAddExoOpen] = useState(false);
   const [newExoName, setNewExoName] = useState("");
@@ -60,7 +63,10 @@ export default function Params() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
-      <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0, marginBottom: 16 }}>Réglages.</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Réglages.</Text>
+        <SyncDot />
+      </View>
 
       {/* Compte */}
       <Card style={{ marginBottom: 10 }}>
@@ -79,9 +85,8 @@ export default function Params() {
           const vol = programVolume(p, exerciseLib);
           const totalSets = Object.values(vol.total).reduce((a: number, v: any) => a + v, 0);
           return (
-            <Pressable
+            <View
               key={p.id}
-              onPress={() => data.setCurrentProgram(p.id)}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -93,22 +98,32 @@ export default function Params() {
                 borderRadius: 16,
               }}
             >
-              <View style={{ flex: 1 }}>
+              <Pressable style={{ flex: 1 }} onPress={() => { haptic("light"); data.setCurrentProgram(p.id); }}>
                 <Text style={{ fontSize: 15, fontWeight: "700", color: active ? C.accentHi : C.ink0 }}>{p.name}</Text>
                 <Text style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>
                   {(p.sessions || []).length} séances · {totalSets} séries/sem
                   {p.level ? " · " + p.level : ""}
                 </Text>
-              </View>
+              </Pressable>
               {active && <Text style={{ color: C.accent, fontSize: 15 }}>✓</Text>}
-            </Pressable>
+              <Pressable
+                onPress={() => router.push(`/program/${p.id}`)}
+                hitSlop={6}
+                style={{ padding: 8, borderRadius: 8, backgroundColor: "rgba(255,255,255,.05)" }}
+              >
+                <Ionicons name="pencil" size={14} color={C.ink2} />
+              </Pressable>
+            </View>
           );
         })}
         {programs.length === 0 && (
           <Text style={{ color: C.ink3, fontSize: 13, padding: 12 }}>
-            Aucun programme. Importe ton backup v40 pour récupérer les tiens (générateur à venir).
+            Aucun programme. Importe ton backup v40 ou crée un programme vide.
           </Text>
         )}
+        <Btn kind="ghost" sm full onPress={() => { setNewProgName(""); setNewProgOpen(true); }}>
+          ＋ Nouveau programme
+        </Btn>
       </View>
 
       {/* Bibliothèque */}
@@ -194,6 +209,41 @@ export default function Params() {
       <Pressable onPress={() => supabase.auth.signOut()} style={{ minHeight: 44, justifyContent: "center", marginTop: 8 }}>
         <Text style={{ color: C.ink3, textAlign: "center" }}>Se déconnecter</Text>
       </Pressable>
+
+      {/* Sheet : nouveau programme vide */}
+      <Sheet open={newProgOpen} onClose={() => setNewProgOpen(false)} title="Nom du programme">
+        <TextInput
+          value={newProgName}
+          onChangeText={setNewProgName}
+          placeholder="Ex: Mon programme"
+          placeholderTextColor={C.ink3}
+          autoFocus
+          style={{
+            backgroundColor: "rgba(255,255,255,.04)",
+            borderWidth: 1,
+            borderColor: LINE,
+            borderRadius: 12,
+            color: C.ink0,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            fontSize: 15,
+            marginBottom: 12,
+          }}
+        />
+        <Btn
+          full
+          disabled={!newProgName.trim()}
+          onPress={async () => {
+            const p = await data.createProgram(newProgName.trim());
+            await data.setCurrentProgram(p.id);
+            setNewProgOpen(false);
+            haptic("success");
+            router.push(`/program/${p.id}`);
+          }}
+        >
+          ✓ Créer
+        </Btn>
+      </Sheet>
 
       {/* Sheet : nouvel exo custom */}
       <Sheet open={addExoOpen} onClose={() => setAddExoOpen(false)} title={"Nouvel exo · " + (libMuscle || "")}>
