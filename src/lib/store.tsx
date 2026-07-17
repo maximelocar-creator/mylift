@@ -35,6 +35,13 @@ type DataState = {
   createProgram: (name: string) => Promise<Any>;
   duplicateProgram: (programId: string) => Promise<Any | null>;
   deleteProgram: (programId: string) => Promise<void>;
+  addMuscleGroup: (name: string) => Promise<void>;
+  renameMuscleGroup: (oldName: string, newName: string) => Promise<void>;
+  deleteMuscleGroup: (name: string) => Promise<void>;
+  addSubGroup: (group: string, name: string) => Promise<void>;
+  renameSubGroup: (group: string, oldName: string, newName: string) => Promise<void>;
+  deleteSubGroup: (group: string, name: string) => Promise<void>;
+  seedCountInGroup: (group: string) => Promise<number>;
 };
 
 const Ctx = createContext<DataState | null>(null);
@@ -212,6 +219,31 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       await repo.deleteProgram(programId);
       await afterWrite();
     },
+    addMuscleGroup: async (name) => {
+      await repo.addMuscleGroup(userId, name);
+      await afterWrite();
+    },
+    renameMuscleGroup: async (oldName, newName) => {
+      await repo.renameMuscleGroup(userId, oldName, newName);
+      await afterWrite();
+    },
+    deleteMuscleGroup: async (name) => {
+      await repo.deleteMuscleGroup(userId, name);
+      await afterWrite();
+    },
+    addSubGroup: async (group, name) => {
+      await repo.addSubGroup(userId, group, name);
+      await afterWrite();
+    },
+    renameSubGroup: async (group, oldName, newName) => {
+      await repo.renameSubGroup(userId, group, oldName, newName);
+      await afterWrite();
+    },
+    deleteSubGroup: async (group, name) => {
+      await repo.deleteSubGroup(userId, group, name);
+      await afterWrite();
+    },
+    seedCountInGroup: (group) => repo.seedCountInGroup(group),
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -572,3 +572,124 @@ export async function deleteProgram(programId: string): Promise<void> {
     await enqueue(tx as any, "programs", "delete", { id: programId }, null);
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* CRUD groupes / sous-groupes musculaires (port ParamsMuscleGroups)   */
+/* Contrainte v2 : les exos seed sont globaux (non modifiables par     */
+/* RLS) — rename/delete de groupe refusés s'il contient des seeds.     */
+/* ------------------------------------------------------------------ */
+
+export async function addMuscleGroup(userId: string, name: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const row = await tx.getFirstAsync<Any>("SELECT MAX(position) AS p FROM muscle_groups");
+    const position = (row?.p ?? -1) + 1;
+    await tx.runAsync("INSERT OR REPLACE INTO muscle_groups (owner_id, name, position) VALUES (?,?,?)", [userId, name, position]);
+    await enqueue(tx as any, "muscle_groups", "upsert", { owner_id: userId, name }, { owner_id: userId, name, position });
+  });
+}
+
+/** Renvoie le nombre d'exos seed dans un groupe (0 = rename/delete permis). */
+export async function seedCountInGroup(group: string): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM exercises WHERE muscle_group = ? AND is_seed = 1", [group]);
+  return row?.n ?? 0;
+}
+
+export async function renameMuscleGroup(userId: string, oldName: string, newName: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const old = await tx.getFirstAsync<Any>("SELECT * FROM muscle_groups WHERE name = ?", [oldName]);
+    const position = old?.position ?? 0;
+    // PK = (owner_id, name) → rename = delete + insert, même position
+    await tx.runAsync("DELETE FROM muscle_groups WHERE owner_id = ? AND name = ?", [userId, oldName]);
+    await enqueue(tx as any, "muscle_groups", "delete", { owner_id: userId, name: oldName }, null);
+    await tx.runAsync("INSERT OR REPLACE INTO muscle_groups (owner_id, name, position) VALUES (?,?,?)", [userId, newName, position]);
+    await enqueue(tx as any, "muscle_groups", "upsert", { owner_id: userId, name: newName }, { owner_id: userId, name: newName, position });
+    // Sous-groupes : déplacés vers le nouveau nom
+    const subs = await tx.getAllAsync<Any>("SELECT * FROM sub_groups WHERE muscle_group = ? AND owner_id = ?", [oldName, userId]);
+    for (const sg of subs) {
+      await tx.runAsync("DELETE FROM sub_groups WHERE owner_id = ? AND muscle_group = ? AND name = ?", [userId, oldName, sg.name]);
+      await enqueue(tx as any, "sub_groups", "delete", { owner_id: userId, muscle_group: oldName, name: sg.name }, null);
+      await tx.runAsync("INSERT OR REPLACE INTO sub_groups (owner_id, muscle_group, name, position) VALUES (?,?,?,?)", [userId, newName, sg.name, sg.position]);
+      await enqueue(tx as any, "sub_groups", "upsert", { owner_id: userId, muscle_group: newName, name: sg.name }, { owner_id: userId, muscle_group: newName, name: sg.name, position: sg.position });
+    }
+    // Exos persos du groupe (les seeds sont bloqués en amont par seedCountInGroup)
+    const exos = await tx.getAllAsync<Any>("SELECT id FROM exercises WHERE muscle_group = ? AND is_seed = 0", [oldName]);
+    for (const e of exos) {
+      await tx.runAsync("UPDATE exercises SET muscle_group = ? WHERE id = ?", [newName, e.id]);
+      await enqueue(tx as any, "exercises", "update", { id: e.id }, { muscle_group: newName });
+    }
+  });
+}
+
+export async function deleteMuscleGroup(userId: string, name: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("DELETE FROM muscle_groups WHERE owner_id = ? AND name = ?", [userId, name]);
+    await enqueue(tx as any, "muscle_groups", "delete", { owner_id: userId, name }, null);
+    // Exos persos du groupe → "Autre" (v40) ; crée "Autre" si absent
+    const exos = await tx.getAllAsync<Any>("SELECT id FROM exercises WHERE muscle_group = ? AND is_seed = 0", [name]);
+    if (exos.length > 0) {
+      const autre = await tx.getFirstAsync<Any>("SELECT name FROM muscle_groups WHERE name = 'Autre'");
+      if (!autre) {
+        const row = await tx.getFirstAsync<Any>("SELECT MAX(position) AS p FROM muscle_groups");
+        const position = (row?.p ?? -1) + 1;
+        await tx.runAsync("INSERT OR REPLACE INTO muscle_groups (owner_id, name, position) VALUES (?,?,?)", [userId, "Autre", position]);
+        await enqueue(tx as any, "muscle_groups", "upsert", { owner_id: userId, name: "Autre" }, { owner_id: userId, name: "Autre", position });
+      }
+      for (const e of exos) {
+        await tx.runAsync("UPDATE exercises SET muscle_group = 'Autre' WHERE id = ?", [e.id]);
+        await enqueue(tx as any, "exercises", "update", { id: e.id }, { muscle_group: "Autre" });
+      }
+    }
+    // Sous-groupes du groupe supprimés
+    const subs = await tx.getAllAsync<Any>("SELECT name FROM sub_groups WHERE muscle_group = ? AND owner_id = ?", [name, userId]);
+    for (const sg of subs) {
+      await tx.runAsync("DELETE FROM sub_groups WHERE owner_id = ? AND muscle_group = ? AND name = ?", [userId, name, sg.name]);
+      await enqueue(tx as any, "sub_groups", "delete", { owner_id: userId, muscle_group: name, name: sg.name }, null);
+    }
+  });
+}
+
+export async function addSubGroup(userId: string, group: string, name: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const row = await tx.getFirstAsync<Any>("SELECT MAX(position) AS p FROM sub_groups WHERE muscle_group = ?", [group]);
+    const position = (row?.p ?? -1) + 1;
+    await tx.runAsync("INSERT OR REPLACE INTO sub_groups (owner_id, muscle_group, name, position) VALUES (?,?,?,?)", [userId, group, name, position]);
+    await enqueue(tx as any, "sub_groups", "upsert", { owner_id: userId, muscle_group: group, name }, { owner_id: userId, muscle_group: group, name, position });
+  });
+}
+
+export async function renameSubGroup(userId: string, group: string, oldName: string, newName: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const old = await tx.getFirstAsync<Any>("SELECT * FROM sub_groups WHERE muscle_group = ? AND name = ?", [group, oldName]);
+    const position = old?.position ?? 0;
+    await tx.runAsync("DELETE FROM sub_groups WHERE owner_id = ? AND muscle_group = ? AND name = ?", [userId, group, oldName]);
+    await enqueue(tx as any, "sub_groups", "delete", { owner_id: userId, muscle_group: group, name: oldName }, null);
+    await tx.runAsync("INSERT OR REPLACE INTO sub_groups (owner_id, muscle_group, name, position) VALUES (?,?,?,?)", [userId, group, newName, position]);
+    await enqueue(tx as any, "sub_groups", "upsert", { owner_id: userId, muscle_group: group, name: newName }, { owner_id: userId, muscle_group: group, name: newName, position });
+    // Exos persos de ce sous-groupe
+    const exos = await tx.getAllAsync<Any>("SELECT id FROM exercises WHERE muscle_group = ? AND sub_group = ? AND is_seed = 0", [group, oldName]);
+    for (const e of exos) {
+      await tx.runAsync("UPDATE exercises SET sub_group = ? WHERE id = ?", [newName, e.id]);
+      await enqueue(tx as any, "exercises", "update", { id: e.id }, { sub_group: newName });
+    }
+  });
+}
+
+export async function deleteSubGroup(userId: string, group: string, name: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("DELETE FROM sub_groups WHERE owner_id = ? AND muscle_group = ? AND name = ?", [userId, group, name]);
+    await enqueue(tx as any, "sub_groups", "delete", { owner_id: userId, muscle_group: group, name }, null);
+    // Déclasse les exos persos de ce sous-groupe
+    const exos = await tx.getAllAsync<Any>("SELECT id FROM exercises WHERE muscle_group = ? AND sub_group = ? AND is_seed = 0", [group, name]);
+    for (const e of exos) {
+      await tx.runAsync("UPDATE exercises SET sub_group = NULL WHERE id = ?", [e.id]);
+      await enqueue(tx as any, "exercises", "update", { id: e.id }, { sub_group: null });
+    }
+  });
+}

@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
 import { Sheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
+import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
 
 export default function Params() {
   const insets = useSafeAreaInsets();
@@ -193,14 +194,7 @@ export default function Params() {
 
       {/* Groupes musculaires */}
       <SectionLabel>Groupes musculaires</SectionLabel>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-        {groups.map((g) => (
-          <Chip key={g}>
-            {g}
-            {subGroups[g]?.length ? ` (${subGroups[g].length})` : ""}
-          </Chip>
-        ))}
-      </View>
+      <MuscleGroupsSection />
 
       {/* Données */}
       <SectionLabel>Données</SectionLabel>
@@ -271,23 +265,31 @@ export default function Params() {
         {!!libMuscle && (subGroups[libMuscle]?.length || 0) > 0 && (
           <>
             <Label style={{ marginBottom: 8 }}>Sous-muscle</Label>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {(subGroups[libMuscle] || []).map((sg) => (
-                <Pressable
-                  key={sg}
-                  onPress={() => setNewExoSub(newExoSub === sg ? null : sg)}
-                  style={{
-                    paddingVertical: 6,
-                    paddingHorizontal: 12,
-                    borderRadius: 999,
-                    backgroundColor: newExoSub === sg ? ACCENT_WASH : C.bg3,
-                    borderWidth: 1,
-                    borderColor: newExoSub === sg ? "rgba(252,76,2,.4)" : "transparent",
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: newExoSub === sg ? C.accentHi : C.ink2 }}>{sg}</Text>
-                </Pressable>
-              ))}
+            <View style={{ gap: 4, marginBottom: 12 }}>
+              {(subGroups[libMuscle] || []).map((sg) => {
+                const active = newExoSub === sg;
+                return (
+                  <Pressable
+                    key={sg}
+                    onPress={() => setNewExoSub(active ? null : sg)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: 12,
+                      paddingHorizontal: 14,
+                      minHeight: 44,
+                      borderRadius: 10,
+                      backgroundColor: active ? ACCENT_WASH : C.bg3,
+                      borderWidth: 1,
+                      borderColor: active ? "rgba(252,76,2,.4)" : "transparent",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: active ? C.accentHi : C.ink1 }}>{sg}</Text>
+                    {active && <Ionicons name="checkmark" size={16} color={C.accent} />}
+                  </Pressable>
+                );
+              })}
             </View>
           </>
         )}
