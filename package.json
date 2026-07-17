@@ -7,7 +7,8 @@
     "start:tunnel": "expo start --tunnel",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test:core": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' src/core/__tests__/mylift.parity.test.ts"
+    "test:core": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' src/core/__tests__/mylift.parity.test.ts",
+    "test:leak": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' scripts/leak-test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -248,6 +248,12 @@ dashboard en stagger + count-up. Exigences d'origine :
 - Chiffres en tabular-nums partout, touch targets ≥44px minimum
 
 ### Phase 2 — Profils et découverte
+ÉTAT : nav (Feed/Journal/Stats/Notifs/Profil), profil + édition + QR,
+recherche, follow pending/accepted complet, profil autrui privé — FAITS.
+Test de fuite `npm run test:leak` (compte neuf réel) : 8/8 étanche.
+Apple/Google câblés (src/lib/oauth.ts), à valider au premier build EAS.
+Onboarding guidé complet (compte→profil→1er programme) : reste à faire.
+
 
 **Première expérience utilisateur (onboarding grand public)** — priorité forte
 de la Phase 2. Aujourd'hui le parcours d'entrée est fait pour Maxime
