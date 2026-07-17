@@ -110,9 +110,14 @@ export default function Profil() {
           ▦ Mon QR code
         </Btn>
       </View>
-      <Btn kind="ghost" full onPress={() => router.push("/search")}>
-        🔍 Rechercher des utilisateurs
-      </Btn>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Btn kind="ghost" onPress={() => router.push("/search")} style={{ flex: 1 }}>
+          🔍 Rechercher
+        </Btn>
+        <Btn kind="ghost" onPress={() => router.push("/pesee")} style={{ flex: 1 }}>
+          ⚖️ Pesée
+        </Btn>
+      </View>
 
       {/* QR de profil */}
       <Sheet open={qrOpen} onClose={() => setQrOpen(false)} title="Mon QR code">

@@ -109,15 +109,6 @@ export default function TabsLayout() {
           options={{ title: "Stats", tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} /> }}
         />
         <Tabs.Screen
-          name="notifs"
-          options={{
-            title: "Notifs",
-            tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size} color={color} />,
-            tabBarBadge: incoming.length > 0 ? incoming.length : undefined,
-            tabBarBadgeStyle: { backgroundColor: C.accent, color: "#fff", fontSize: 10, fontWeight: "700" },
-          }}
-        />
-        <Tabs.Screen
           name="profil"
           options={{ title: "Profil", tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}
         />

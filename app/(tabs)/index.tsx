@@ -10,6 +10,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { C, L, MOTION } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { useActiveSession } from "@/lib/activeSession";
+import { useSocial } from "@/lib/social";
 import { SyncDot, Btn, ScreenSkeleton } from "@/ui/kit";
 
 export default function Feed() {
@@ -17,6 +18,7 @@ export default function Feed() {
   const router = useRouter();
   const { profile, ready } = useData();
   const { activeSession } = useActiveSession();
+  const { incoming } = useSocial();
   const bottomPad = 24 + (activeSession ? 64 : 0);
 
   // Outil interne : lien "Importer un ancien backup" armé depuis le login
@@ -44,6 +46,27 @@ export default function Feed() {
           <SyncDot />
           <Pressable onPress={() => router.push("/search")} hitSlop={8} style={{ padding: 6 }}>
             <Ionicons name="search" size={20} color={C.ink1} />
+          </Pressable>
+          <Pressable onPress={() => router.push("/notifs")} hitSlop={8} style={{ padding: 6 }}>
+            <Ionicons name="notifications-outline" size={20} color={C.ink1} />
+            {incoming.length > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 0,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: C.accent,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 3,
+                }}
+              >
+                <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>{incoming.length}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>

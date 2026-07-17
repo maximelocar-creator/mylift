@@ -4,11 +4,11 @@ import { useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { C, L } from "@/lib/theme";
 import { haptic } from "@/lib/haptics";
 import { useData } from "@/lib/store";
 import { useSocial } from "@/lib/social";
-import { useActiveSession } from "@/lib/activeSession";
 import * as social from "@/db/social";
 import { SectionLabel, Btn, SyncDot } from "@/ui/kit";
 import { Avatar } from "@/ui/Avatar";
@@ -19,10 +19,8 @@ export default function Notifs() {
   const router = useRouter();
   const { userId } = useData();
   const { incoming, outgoing, refreshSocial } = useSocial();
-  const { activeSession } = useActiveSession();
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const bottomPad = 24 + (activeSession ? 64 : 0);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -43,9 +41,13 @@ export default function Notifs() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: C.bg0 }}
-      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}
+      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.ink3} />}
     >
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 10, minHeight: 44 }}>
+        <Ionicons name="chevron-back" size={16} color={C.ink2} />
+        <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Feed</Text>
+      </Pressable>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Notifs.</Text>
         <SyncDot />

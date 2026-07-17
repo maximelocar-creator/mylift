@@ -20,6 +20,22 @@ import { Btn, Label } from "@/ui/kit";
 import { Avatar } from "@/ui/Avatar";
 import type { Any } from "@/core/mylift";
 
+// base64 → Uint8Array (sans dépendre d'atob, absent de certains runtimes)
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function base64ToBytes(b64: string): Uint8Array {
+  const clean = b64.replace(/[^A-Za-z0-9+/]/g, "");
+  const len = Math.floor((clean.length * 3) / 4);
+  const out = new Uint8Array(len);
+  let o = 0;
+  for (let i = 0; i + 3 < clean.length + 1; i += 4) {
+    const n = (B64.indexOf(clean[i]) << 18) | (B64.indexOf(clean[i + 1]) << 12) | ((B64.indexOf(clean[i + 2]) & 63) << 6) | (B64.indexOf(clean[i + 3]) & 63);
+    if (o < len) out[o++] = (n >> 16) & 255;
+    if (o < len && clean[i + 2] !== undefined) out[o++] = (n >> 8) & 255;
+    if (o < len && clean[i + 3] !== undefined) out[o++] = n & 255;
+  }
+  return out;
+}
+
 const inputStyle = {
   backgroundColor: "rgba(255,255,255,.04)",
   borderWidth: 1,
@@ -42,6 +58,7 @@ export default function ProfileEdit() {
   const [city, setCity] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null); // locale, à uploader
+  const [avatarB64, setAvatarB64] = useState<string | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "ok" | "taken" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +111,10 @@ export default function ProfileEdit() {
     const manipulated = await ImageManipulator.manipulateAsync(res.assets[0].uri, [{ resize: { width: 1080 } }], {
       compress: 0.8,
       format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
     });
     setAvatarUri(manipulated.uri);
+    setAvatarB64(manipulated.base64 ?? null);
     haptic("light");
   };
 
@@ -109,15 +128,26 @@ export default function ProfileEdit() {
     setError(null);
     try {
       let avatar_url: string | undefined;
-      if (avatarUri) {
-        // Upload Storage (bucket "avatars") — l'URL publique est stockée sur le profil
-        const resp = await fetch(avatarUri);
-        const blob = await resp.arrayBuffer();
+      if (avatarUri && avatarB64) {
+        // Upload Storage (bucket "avatars") en octets décodés du base64 —
+        // fetch(file://).arrayBuffer() n'est pas fiable en React Native
         const path = `${userId}.jpg`;
-        const { error: upErr } = await supabase.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-        if (upErr) throw new Error("Avatar : " + upErr.message);
-        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
-        avatar_url = pub.publicUrl + "?t=" + Date.now();
+        const bytes = base64ToBytes(avatarB64);
+        const { error: upErr } = await supabase.storage.from("avatars").upload(path, bytes.buffer as ArrayBuffer, { contentType: "image/jpeg", upsert: true });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+          avatar_url = pub.publicUrl + "?t=" + Date.now();
+        } else {
+          // Repli : bucket absent/refusé → vignette 256px en data-URI directement
+          // dans profiles.avatar_url (≈20 Ko). Migration vers Storage plus tard.
+          const small = await ImageManipulator.manipulateAsync(avatarUri, [{ resize: { width: 256 } }], {
+            compress: 0.7,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          });
+          if (!small.base64) throw new Error("Avatar : " + upErr.message);
+          avatar_url = "data:image/jpeg;base64," + small.base64;
+        }
       }
       const patch: Any = { username: u, city: city.trim() || null, bio: bio.trim().slice(0, 160) || null };
       if (avatar_url) patch.avatar_url = avatar_url;

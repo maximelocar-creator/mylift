@@ -333,12 +333,23 @@ du flow d'un utilisateur normal.
 - Commentaires (≤500 caractères)
 - Notifications : nouveau follower, follow accepté, like, commentaire — table
   notifications déjà en place en Phase 0, à câbler côté UI + déclenchement
+- Notifications PUSH (expo-notifications) : demandé par Maxime — pas d'onglet
+  dédié, l'accès in-app est la cloche + badge sur le header du Feed (fait en
+  Phase 2) ; le push distant exige un build EAS (device token APNs), à câbler
+  avec le premier build custom
 
 ### Phase 5 — Mise en production
 - Conformité RGPD : suppression de compte en cascade complète (vérifier que
   chaque table avec owner_id a bien un ON DELETE CASCADE, déjà le cas dans
   le schéma), export de données personnelles sur demande
 - Modération de base : signalement de post/commentaire, table et flux minimal
+**Connexion app Santé (HealthKit)** — demandé par Maxime : synchroniser les
+pesées avec Apple Santé (lecture du poids saisi ailleurs, écriture des pesées
+MyLift). Nécessite du code natif (react-native-health / HealthKit entitlement)
+→ build EAS custom, impossible en Expo Go — même wagon que les Live Activities.
+L'écran Pesée reste la source UI ; la sync Santé est bidirectionnelle avec
+priorité au plus récent.
+
 **Live Activities (Dynamic Island + écran verrouillé)** — nécessite du code
 natif iOS (ActivityKit / WidgetKit), donc un build EAS custom, impossible en
 Expo Go. C'est la raison pour laquelle c'est en Phase 5 et pas avant. Pendant
