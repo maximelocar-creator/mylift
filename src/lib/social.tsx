@@ -8,7 +8,7 @@ import type { Any } from "../core/mylift";
 type SocialState = {
   incoming: Any[];
   outgoing: Any[];
-  counts: { followers: number; following: number };
+  friendCount: number;
   refreshSocial: () => Promise<void>;
 };
 
@@ -23,19 +23,20 @@ export function useSocial(): SocialState {
 export function SocialProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [incoming, setIncoming] = useState<Any[]>([]);
   const [outgoing, setOutgoing] = useState<Any[]>([]);
-  const [counts, setCounts] = useState({ followers: 0, following: 0 });
+  const [friendCount, setFriendCount] = useState(0);
 
   const refreshSocial = useCallback(async () => {
     if (!userId) return;
     try {
+      await social.ensureReciprocity(userId);
       const [inc, out, cnt] = await Promise.all([
         social.fetchIncomingPending(userId),
         social.fetchOutgoingPending(userId),
-        social.fetchCounts(userId),
+        social.fetchFriendCount(userId),
       ]);
       setIncoming(inc);
       setOutgoing(out);
-      setCounts(cnt);
+      setFriendCount(cnt);
     } catch {
       // hors ligne : on garde le dernier état connu
     }
@@ -49,5 +50,5 @@ export function SocialProvider({ userId, children }: { userId: string | null; ch
     return () => sub.remove();
   }, [refreshSocial]);
 
-  return <Ctx.Provider value={{ incoming, outgoing, counts, refreshSocial }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ incoming, outgoing, friendCount, refreshSocial }}>{children}</Ctx.Provider>;
 }

@@ -1,4 +1,4 @@
-// Notifs — demandes de follow reçues (accepter/refuser) et envoyées (annuler).
+// Notifs — demandes d'AMI reçues (accepter/refuser) et envoyées (annuler).
 // Les notifications likes/commentaires arrivent en Phase 4.
 import { useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
@@ -58,7 +58,7 @@ export default function Notifs() {
           <Text style={{ fontSize: 36 }}>🔔</Text>
           <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink1 }}>Rien pour l'instant</Text>
           <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
-            Les demandes de follow et l'activité de tes abonnés apparaîtront ici.
+            Les demandes d'ami et l'activité de tes amis apparaîtront ici.
           </Text>
         </View>
       )}
@@ -78,7 +78,7 @@ export default function Notifs() {
                     <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>
                       @{r.profile.username}
                     </Text>
-                    <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>souhaite te suivre</Text>
+                    <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>souhaite devenir ami</Text>
                   </View>
                 </Pressable>
                 <Btn
@@ -86,7 +86,7 @@ export default function Notifs() {
                   disabled={busy === r.follower_id}
                   onPress={() =>
                     act(r.follower_id, async () => {
-                      await social.acceptFollow(r.follower_id, userId!);
+                      await social.acceptFriend(r.follower_id, userId!);
                       haptic("success");
                     })
                   }
@@ -96,7 +96,7 @@ export default function Notifs() {
                 <Pressable
                   onPress={() =>
                     act(r.follower_id, async () => {
-                      await social.declineFollow(r.follower_id, userId!);
+                      await social.declineFriend(r.follower_id, userId!);
                       haptic("light");
                     })
                   }
@@ -135,7 +135,7 @@ export default function Notifs() {
                   disabled={busy === r.following_id}
                   onPress={() =>
                     act(r.following_id, async () => {
-                      await social.unfollow(userId!, r.following_id);
+                      await social.cancelFriendRequest(userId!, r.following_id);
                       haptic("light");
                     })
                   }

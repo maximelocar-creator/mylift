@@ -1,5 +1,5 @@
 // Profil d'un autre utilisateur — vue publique minimale (username, ville, bio,
-// avatar, compteurs) + machine à états du follow. Compte privé par défaut :
+// avatar, compteur d'amis) + machine à états de la demande d'AMI. Privé par défaut :
 // AUCUNE donnée d'entraînement affichée tant que la demande n'est pas acceptée
 // (et en Phase 2, aucun post n'existe encore de toute façon). Les machines
 // (exercise_models) ne sont jamais visibles — la RLS serveur le garantit,
@@ -27,17 +27,17 @@ export default function UserProfile() {
   const { refreshSocial } = useSocial();
 
   const [profile, setProfile] = useState<Any | null>(null);
-  const [counts, setCounts] = useState({ followers: 0, following: 0 });
+  const [counts, setCounts] = useState({ friends: 0 });
   const [followState, setFollowState] = useState<string>("loading"); // none|pending|accepted
   const [unfollowConfirm, setUnfollowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     try {
-      const [p, c, f] = await Promise.all([social.fetchProfile(otherId), social.fetchCounts(otherId), social.fetchMyFollowTo(userId!, otherId)]);
+      const [p, c, st] = await Promise.all([social.fetchProfile(otherId), social.fetchFriendCount(otherId), social.fetchFriendState(userId!, otherId)]);
       setProfile(p);
-      setCounts(c);
-      setFollowState(f ? f.status : "none");
+      setCounts({ friends: c });
+      setFollowState(st);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     }
@@ -48,15 +48,15 @@ export default function UserProfile() {
 
   const act = async () => {
     try {
-      if (followState === "none") {
-        setFollowState("pending");
-        await social.sendFollowRequest(userId!, otherId);
+      if (followState === "none" || followState === "pending_received") {
+        const next = await social.sendFriendRequest(userId!, otherId);
+        setFollowState(next);
         haptic("success");
-      } else if (followState === "pending") {
+      } else if (followState === "pending_sent") {
         setFollowState("none");
-        await social.unfollow(userId!, otherId);
+        await social.cancelFriendRequest(userId!, otherId);
         haptic("light");
-      } else if (followState === "accepted") {
+      } else if (followState === "friends") {
         setUnfollowConfirm(true);
         return;
       }
@@ -106,27 +106,34 @@ export default function UserProfile() {
           </View>
 
           <View style={{ flexDirection: "row", backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16, paddingVertical: 12, marginBottom: 12 }}>
-            {counter("Followers", counts.followers)}
-            <View style={{ width: 1, backgroundColor: L.line }} />
-            {counter("Following", counts.following)}
+            {counter("Amis", counts.friends)}
           </View>
 
           {followState !== "loading" && (
-            <Btn kind={followState === "none" ? "primary" : "ghost"} full onPress={act}>
-              {followState === "none" ? "Suivre" : followState === "pending" ? "Demande envoyée · Annuler" : "Suivi ✓ · Ne plus suivre"}
+            <Btn kind={followState === "none" || followState === "pending_received" ? "primary" : "ghost"} full onPress={act}>
+              {followState === "none"
+                ? "Ajouter en ami"
+                : followState === "pending_sent"
+                  ? "Demande envoyée · Annuler"
+                  : followState === "pending_received"
+                    ? "Accepter la demande"
+                    : "Amis ✓ · Retirer"}
             </Btn>
           )}
 
           {/* Compte privé : rien d'autre n'est montré tant que non accepté */}
           <View style={{ alignItems: "center", padding: 32, gap: 8, marginTop: 16 }}>
-            <Ionicons name={followState === "accepted" ? "checkmark-circle-outline" : "lock-closed-outline"} size={28} color={C.ink3} />
-            {followState === "accepted" ? (
-              <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
-                Tu suis ce compte. Ses posts apparaîtront dans ton feed dès la prochaine mise à jour.
-              </Text>
+            <Ionicons name={followState === "friends" ? "checkmark-circle-outline" : "lock-closed-outline"} size={28} color={C.ink3} />
+            {followState === "friends" ? (
+              <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>Vous êtes amis. Ses posts apparaissent dans ton feed.</Text>
             ) : (
               <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center" }}>
-                Ce compte est privé. {followState === "pending" ? "Ta demande est en attente d'acceptation." : "Envoie une demande pour voir ses posts."}
+                Ce compte est privé.{" "}
+                {followState === "pending_sent"
+                  ? "Ta demande est en attente d'acceptation."
+                  : followState === "pending_received"
+                    ? "Il t'a envoyé une demande — accepte pour devenir amis."
+                    : "Envoie une demande d'ami pour voir ses posts."}
               </Text>
             )}
           </View>
@@ -139,13 +146,13 @@ export default function UserProfile() {
         onConfirm={async () => {
           setUnfollowConfirm(false);
           setFollowState("none");
-          await social.unfollow(userId!, otherId);
+          await social.removeFriend(userId!, otherId);
           haptic("light");
           refreshSocial();
         }}
-        title="Ne plus suivre ?"
-        message={profile ? `@${profile.username} devra accepter une nouvelle demande si tu changes d'avis.` : ""}
-        confirmLabel="Ne plus suivre"
+        title="Retirer cet ami ?"
+        message={profile ? `@${profile.username} devra renvoyer une demande pour redevenir ami.` : ""}
+        confirmLabel="Retirer"
       />
     </ScrollView>
   );

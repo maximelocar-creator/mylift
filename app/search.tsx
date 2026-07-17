@@ -1,5 +1,5 @@
 // Recherche d'utilisateurs par username — cartes profil publiques minimales
-// (jamais de données d'entraînement) + bouton Suivre (demande pending).
+// (jamais de données d'entraînement) + bouton Ajouter (demande d'ami).
 import { useEffect, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,8 +38,7 @@ export default function Search() {
       const states: Record<string, string> = {};
       await Promise.all(
         rows.map(async (r) => {
-          const f = await social.fetchMyFollowTo(userId!, r.id);
-          states[r.id] = f ? f.status : "none";
+          states[r.id] = await social.fetchFriendState(userId!, r.id);
         })
       );
       setFollowStates(states);
@@ -58,16 +57,16 @@ export default function Search() {
     };
   }, [q]);
 
-  const toggleFollow = async (otherId: string) => {
+  const toggleFriend = async (otherId: string) => {
     const cur = followStates[otherId] || "none";
     try {
-      if (cur === "none") {
-        setFollowStates({ ...followStates, [otherId]: "pending" });
-        await social.sendFollowRequest(userId!, otherId);
+      if (cur === "none" || cur === "pending_received") {
+        const next = await social.sendFriendRequest(userId!, otherId);
+        setFollowStates({ ...followStates, [otherId]: next });
         haptic("success");
-      } else if (cur === "pending") {
+      } else if (cur === "pending_sent") {
         setFollowStates({ ...followStates, [otherId]: "none" });
-        await social.unfollow(userId!, otherId);
+        await social.cancelFriendRequest(userId!, otherId);
         haptic("light");
       }
       refreshSocial();
@@ -136,13 +135,13 @@ export default function Search() {
                     {!!r.ville && <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>{r.ville}</Text>}
                   </View>
                 </Pressable>
-                {st === "accepted" ? (
+                {st === "friends" ? (
                   <View style={{ paddingVertical: 6, paddingHorizontal: 10 }}>
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.success }}>Suivi ✓</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.success }}>Amis ✓</Text>
                   </View>
                 ) : (
-                  <Btn kind={st === "pending" ? "ghost" : "primary"} sm onPress={() => toggleFollow(r.id)}>
-                    {st === "pending" ? "Demandé" : "Suivre"}
+                  <Btn kind={st === "pending_sent" ? "ghost" : "primary"} sm onPress={() => toggleFriend(r.id)}>
+                    {st === "pending_sent" ? "Demandé" : st === "pending_received" ? "Accepter" : "Ajouter"}
                   </Btn>
                 )}
               </View>

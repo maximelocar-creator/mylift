@@ -21,14 +21,14 @@ export default function Profil() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { userId, journalLogs } = useData();
-  const { counts, refreshSocial } = useSocial();
+  const { friendCount, refreshSocial } = useSocial();
   const { activeSession } = useActiveSession();
   const bottomPad = 24 + (activeSession ? 64 : 0);
 
   const [profile, setProfile] = useState<Any | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [listOpen, setListOpen] = useState<"followers" | "following" | null>(null);
+  const [listOpen, setListOpen] = useState(false);
   const [listRows, setListRows] = useState<Any[]>([]);
   const [removeTarget, setRemoveTarget] = useState<Any | null>(null);
 
@@ -49,13 +49,12 @@ export default function Profil() {
   };
 
   const listReq = useRef(0);
-  const openList = async (kind: "followers" | "following") => {
+  const openList = async () => {
     const req = ++listReq.current;
-    setListOpen(kind);
+    setListOpen(true);
     setListRows([]);
     try {
-      const rows = kind === "followers" ? await social.fetchFollowers(userId!) : await social.fetchFollowing(userId!);
-      // Ignore les réponses périmées (ouverture rapide de l'autre liste)
+      const rows = await social.fetchFriends(userId!);
       if (listReq.current === req) setListRows(rows);
     } catch {}
   };
@@ -97,9 +96,7 @@ export default function Profil() {
 
       {/* Compteurs */}
       <View style={{ flexDirection: "row", backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16, paddingVertical: 12, marginBottom: 12 }}>
-        {counter("Followers", counts.followers, () => openList("followers"))}
-        <View style={{ width: 1, backgroundColor: L.line }} />
-        {counter("Following", counts.following, () => openList("following"))}
+        {counter("Amis", friendCount, () => openList())}
         <View style={{ width: 1, backgroundColor: L.line }} />
         {counter("Séances", journalLogs.length)}
       </View>
@@ -133,32 +130,29 @@ export default function Profil() {
         </View>
       </Sheet>
 
-      {/* Listes followers / following */}
-      <Sheet open={!!listOpen} onClose={() => setListOpen(null)} title={listOpen === "followers" ? "Followers" : "Following"}>
+      {/* Liste d'amis */}
+      <Sheet open={listOpen} onClose={() => setListOpen(false)} title="Amis">
         {listRows.length === 0 && <Text style={{ color: C.ink3, textAlign: "center", padding: 20 }}>Personne pour l'instant.</Text>}
         <View style={{ gap: 6 }}>
-          {listRows.map((r: Any) => {
-            const otherId = listOpen === "followers" ? r.follower_id : r.following_id;
-            return (
-              <View key={`${r.follower_id}-${r.following_id}`} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, backgroundColor: C.bg3, borderRadius: 12 }}>
-                <Pressable
-                  onPress={() => {
-                    setListOpen(null);
-                    router.push(`/user/${otherId}`);
-                  }}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}
-                >
-                  <Avatar profile={r.profile} size={36} />
-                  <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0, flex: 1 }}>
-                    @{r.profile.username}
-                  </Text>
-                </Pressable>
-                <Btn kind="ghost" sm onPress={() => setRemoveTarget({ ...r, kind: listOpen })}>
-                  {listOpen === "followers" ? "Retirer" : "Ne plus suivre"}
-                </Btn>
-              </View>
-            );
-          })}
+          {listRows.map((r: Any) => (
+            <View key={r.otherId} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, backgroundColor: C.bg3, borderRadius: 12 }}>
+              <Pressable
+                onPress={() => {
+                  setListOpen(false);
+                  router.push(`/user/${r.otherId}`);
+                }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}
+              >
+                <Avatar profile={r.profile} size={36} />
+                <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0, flex: 1 }}>
+                  @{r.profile.username}
+                </Text>
+              </Pressable>
+              <Btn kind="ghost" sm onPress={() => setRemoveTarget(r)}>
+                Retirer
+              </Btn>
+            </View>
+          ))}
         </View>
       </Sheet>
 
@@ -169,15 +163,14 @@ export default function Profil() {
           const t = removeTarget;
           setRemoveTarget(null);
           if (!t) return;
-          if (t.kind === "followers") await social.removeFollower(t.follower_id, userId!);
-          else await social.unfollow(userId!, t.following_id);
+          await social.removeFriend(userId!, t.otherId);
           haptic("light");
           await refreshSocial();
-          if (listOpen) openList(listOpen);
+          if (listOpen) openList();
         }}
-        title={removeTarget?.kind === "followers" ? "Retirer ce follower ?" : "Ne plus suivre ?"}
-        message={removeTarget ? `@${removeTarget.profile.username}` : ""}
-        confirmLabel={removeTarget?.kind === "followers" ? "Retirer" : "Ne plus suivre"}
+        title="Retirer cet ami ?"
+        message={removeTarget ? `@${removeTarget.profile.username} devra renvoyer une demande pour redevenir ami.` : ""}
+        confirmLabel="Retirer"
       />
     </ScrollView>
   );
