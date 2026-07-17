@@ -511,6 +511,81 @@ export function muscleIndexSummary(journalLogs: Any[], lib: Any[], periodDays = 
   return rows.sort((a, b) => b.deltaPct - a.deltaPct);
 }
 
+/* Volume programme (static) — incluant sous-groupes */
+export function programVolume(program: Any | null | undefined, lib: Any[]) {
+  const total: Record<string, number> = {},
+    perSession: Record<string, Any> = {},
+    totalSub: Record<string, Record<string, number>> = {};
+  (program?.sessions || []).forEach((s: Any) => {
+    const ps: Record<string, number> = {};
+    (s.exercises || []).forEach((ex: Any) => {
+      const sets = parseInt(ex.sets) || 0;
+      let g = ex.muscleGroup || 'Autre';
+      let sg = ex.subGroup || null;
+      const c = ex.choices?.[0];
+      if (c?.exId) {
+        const L = lib.find((l) => l.id === c.exId);
+        if (L?.muscleGroup) g = L.muscleGroup;
+        if (L?.subGroup) sg = L.subGroup;
+      }
+      ps[g] = (ps[g] || 0) + sets;
+      total[g] = (total[g] || 0) + sets;
+      if (sg) {
+        if (!totalSub[g]) totalSub[g] = {};
+        totalSub[g][sg] = (totalSub[g][sg] || 0) + sets;
+      }
+    });
+    perSession[s.id] = ps;
+  });
+  return { total, perSession, totalSub };
+}
+
+/* Volume actuel cette semaine */
+export function weekActualVolume(journalLogs: Any[], lib: Any[], weekStart: Date): Record<string, number> {
+  const s0 = iso(weekStart);
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const e0 = iso(end);
+  const vol: Record<string, number> = {};
+  journalLogs.forEach((ses) => {
+    if (ses.date < s0 || ses.date > e0) return;
+    (ses.exercises || []).forEach((ex: Any) => {
+      const sets = (ex.sets || []).filter(isValidSet).length;
+      if (!sets) return;
+      const g = exoMuscleGroup(ex, lib);
+      vol[g] = (vol[g] || 0) + sets;
+    });
+  });
+  return vol;
+}
+
+/* KPI agrégés (7j ou période) */
+export function periodKPI(journalLogs: Any[], days = 7) {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = daysAgo(days - 1);
+  const s0 = iso(start),
+    e0 = iso(end);
+  const sessions = journalLogs.filter((l) => l.date >= s0 && l.date <= e0);
+  const prevStart = daysAgo(days * 2 - 1);
+  const prevEnd = daysAgo(days);
+  const prevSessions = journalLogs.filter((l) => l.date >= iso(prevStart) && l.date <= iso(prevEnd));
+  const agg = (arr: Any[]) => ({
+    sessions: arr.length,
+    tonnage: arr.reduce((a, s) => a + tonnageSession(s), 0),
+    duration: arr.reduce((a, s) => a + (s.durationSec || 0), 0),
+    prs: arr.reduce((a, s) => a + (s.prs?.length || 0), 0),
+    sets: arr.reduce((a, s) => a + setsCountSession(s), 0),
+    score: arr.reduce((a, s) => a + scoreSession(s), 0),
+  });
+  return { curr: agg(sessions), prev: agg(prevSessions), rawSessions: sessions };
+}
+
+export function deltaPct(curr: number, prev: number): number | null {
+  if (!prev || prev === 0) return null;
+  return ((curr - prev) / prev) * 100;
+}
+
 /* Next session recommendation (oldest-last logic) */
 export function recommendedSession(program: Any | null | undefined, journalLogs: Any[]): Any | null {
   if (!program?.sessions?.length) return null;
