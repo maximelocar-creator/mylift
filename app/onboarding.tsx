@@ -35,16 +35,18 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const data = useData();
-  const { userId, profile, programs, ready } = data;
+  const { userId, profile, programs, ready, redoOnboarding } = data;
 
   // L'étape découle de l'état réel : pas de profil → 1, pas de programme → 2,
-  // programme créé → 3 (bienvenue + amis).
+  // programme créé → 3 (bienvenue + amis). En mode redoOnboarding (compte de
+  // test remis à zéro), on repart de l'étape 1 même si le username existe.
   const hasProfile = !!profile?.username;
-  const [step, setStep] = useState<1 | 2 | 3>(hasProfile ? (programs.length > 0 ? 3 : 2) : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(!redoOnboarding && hasProfile ? (programs.length > 0 ? 3 : 2) : 1);
   useEffect(() => {
+    if (redoOnboarding) return;
     if (hasProfile && step === 1) setStep(2);
     if (hasProfile && programs.length > 0 && step === 2) setStep(3);
-  }, [hasProfile, programs.length]);
+  }, [hasProfile, programs.length, redoOnboarding]);
 
   // --- Étape 1 : profil ---
   const [username, setUsername] = useState("");
@@ -97,6 +99,7 @@ export default function Onboarding() {
       // Redescend le profil dans SQLite pour que la garde de nav le voie
       await syncNow();
       await data.reload();
+      await data.clearRedoOnboarding();
       haptic("success");
       setStep(2);
     } catch (e: any) {
@@ -271,7 +274,13 @@ export default function Onboarding() {
               </Text>
             </Pressable>
 
-            <Pressable onPress={() => router.replace("/")} style={{ minHeight: 44, justifyContent: "center" }}>
+            <Pressable
+              onPress={async () => {
+                await data.clearRedoOnboarding();
+                router.replace("/");
+              }}
+              style={{ minHeight: 44, justifyContent: "center" }}
+            >
               <Text style={{ color: C.ink3, textAlign: "center", fontSize: 13 }}>Plus tard — explorer l'app d'abord</Text>
             </Pressable>
           </Animated.View>
@@ -307,7 +316,13 @@ export default function Onboarding() {
               </Text>
             </Pressable>
 
-            <Btn full onPress={() => router.replace("/")}>
+            <Btn
+              full
+              onPress={async () => {
+                await data.clearRedoOnboarding();
+                router.replace("/");
+              }}
+            >
               C'est parti →
             </Btn>
           </Animated.View>

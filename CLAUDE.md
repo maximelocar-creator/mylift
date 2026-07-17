@@ -284,6 +284,16 @@ scripts/.fake-users.json gitignoré) : alex_lifts, sofia.gains, marc_pr —
 amis réciproques avec @maxlocar, 2 posts chacun. Mode "accept" pour faire
 accepter leurs demandes entrantes. À purger avant la mise en production.
 
+Compte de test onboarding : test@test.fr / test1234 — remis à ZÉRO à
+chaque déconnexion (src/lib/devReset.ts, strictement gaté sur cet email) :
+delete serveur de toutes ses données (cascade), profil vidé (le username
+reste : RLS interdit delete du profil + contrainte NOT NULL/format),
+drapeau local redoOnboarding → rejoue l'onboarding au login suivant.
+À retirer avant la mise en production. La base SQLite locale est UNIQUE
+par device et taguée meta db_owner : changement de compte → wipe complet
+automatique (résidus d'affichage + queue de sync d'un autre compte
+seraient bloqués par la RLS et gèleraient le pull).
+
 
 **Première expérience utilisateur (onboarding grand public)** — priorité forte
 de la Phase 2. Aujourd'hui le parcours d'entrée est fait pour Maxime

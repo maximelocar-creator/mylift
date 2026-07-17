@@ -4,8 +4,11 @@
 // plan, et après chaque écriture.
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as repo from "../db/repo";
 import { syncNow, flushSyncQueue, pendingSyncCount } from "../db/sync";
+import { getMeta, setMeta, resetLocalDb } from "../db/local";
+import { redoOnboardingKey } from "./devReset";
 import type { Any } from "../core/mylift";
 
 type DataState = {
@@ -21,6 +24,8 @@ type DataState = {
   sessionNotes: Record<string, string>;
   pendingSync: number;
   syncing: boolean;
+  redoOnboarding: boolean;
+  clearRedoOnboarding: () => Promise<void>;
   reload: () => Promise<void>;
   saveLog: (log: Any) => Promise<void>;
   deleteLog: (logId: string) => Promise<void>;
@@ -66,6 +71,7 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
   const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
   const [pendingSync, setPendingSync] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [redoOnboarding, setRedoOnboarding] = useState(false);
   const mounted = useRef(true);
 
   const loadFromLocal = useCallback(async () => {
@@ -115,6 +121,13 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
     mounted.current = true;
     if (!userId) return; // pas de session : provider inerte (écran login)
     (async () => {
+      // 0. La base locale appartient-elle à un AUTRE compte ? (même téléphone,
+      // logout/login) → wipe complet : jamais de résidus d'un autre utilisateur,
+      // ni de queue de sync bloquée par la RLS du nouveau compte.
+      const owner = await getMeta("db_owner");
+      if (owner && owner !== userId) await resetLocalDb();
+      await setMeta("db_owner", userId);
+      setRedoOnboarding((await AsyncStorage.getItem(redoOnboardingKey(userId))) === "1");
       // 1. Affiche immédiatement les données locales (offline-first)
       await loadFromLocal();
       setReady(true);
@@ -128,6 +141,11 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
       mounted.current = false;
       sub.remove();
     };
+  }, [userId]);
+
+  const clearRedoOnboarding = useCallback(async () => {
+    setRedoOnboarding(false);
+    if (userId) await AsyncStorage.removeItem(redoOnboardingKey(userId));
   }, [userId]);
 
   const afterWrite = useCallback(async () => {
@@ -153,6 +171,8 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
     sessionNotes,
     pendingSync,
     syncing,
+    redoOnboarding,
+    clearRedoOnboarding,
     reload,
     saveLog: async (log) => {
       await repo.saveWorkoutLog(userId!, log);

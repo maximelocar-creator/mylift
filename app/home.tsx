@@ -6,6 +6,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
+import { devResetIfTestAccount } from "@/lib/devReset";
 import { importBackup, ImportResult } from "@/db/importBackup";
 import { syncNow } from "@/db/sync";
 import { useData } from "@/lib/store";
@@ -204,7 +205,12 @@ export default function Home() {
           )}
 
           <Pressable
-            onPress={() => supabase.auth.signOut()}
+            onPress={async () => {
+            try {
+              await devResetIfTestAccount(); // no-op hors compte test@test.fr
+            } catch {}
+            supabase.auth.signOut();
+          }}
             style={{ minHeight: 44, justifyContent: "center", marginTop: 8 }}
           >
             <Text style={{ color: C.ink3, textAlign: "center" }}>Se déconnecter</Text>

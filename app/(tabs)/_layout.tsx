@@ -32,12 +32,13 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const { activeSession } = useActiveSession();
   const { incoming } = useSocial();
-  const { ready, profile } = useData();
+  const { ready, profile, redoOnboarding } = useData();
   const showBanner = !!activeSession && !pathname.startsWith("/journal");
 
   // Compte neuf sans profil → onboarding guidé (jamais l'écran d'import,
-  // qui reste l'outil interne accessible via le lien discret du login)
-  if (ready && !profile?.username) {
+  // qui reste l'outil interne accessible via le lien discret du login).
+  // redoOnboarding : compte de test remis à zéro, on rejoue le parcours.
+  if (ready && (!profile?.username || redoOnboarding)) {
     return <Redirect href="/onboarding" />;
   }
 

@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
+import { devResetIfTestAccount } from "@/lib/devReset";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
 import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
@@ -214,7 +215,12 @@ export default function Params() {
         <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2 }}>Fichier JSON exporté depuis la PWA · relançable sans doublon</Text>
       </Pressable>
 
-      <Pressable onPress={() => supabase.auth.signOut()} style={{ minHeight: 44, justifyContent: "center", marginTop: 8 }}>
+      <Pressable onPress={async () => {
+            try {
+              await devResetIfTestAccount(); // no-op hors compte test@test.fr
+            } catch {}
+            supabase.auth.signOut();
+          }} style={{ minHeight: 44, justifyContent: "center", marginTop: 8 }}>
         <Text style={{ color: C.ink3, textAlign: "center" }}>Se déconnecter</Text>
       </Pressable>
 

@@ -180,6 +180,20 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
+/** Vide TOUTES les tables locales (queue de sync et meta comprises).
+ *  Utilisé quand le compte connecté change sur ce device — le miroir et la
+ *  queue de l'ancien compte ne doivent jamais survivre (fuite d'affichage +
+ *  pushs bloqués par la RLS qui gèleraient le pull du nouveau compte). */
+export async function resetLocalDb(): Promise<void> {
+  const db = await getDb();
+  const tables = [
+    "exercises", "exercise_models", "programs", "program_sessions", "program_exercises",
+    "program_model_targets", "workout_logs", "log_exercises", "log_sets", "workout_prs",
+    "weights", "muscle_groups", "sub_groups", "session_notes", "profiles", "sync_queue", "meta",
+  ];
+  await db.execAsync(tables.map((t) => `DELETE FROM ${t};`).join("\n"));
+}
+
 export async function getMeta(key: string): Promise<string | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM meta WHERE key = ?", [key]);
