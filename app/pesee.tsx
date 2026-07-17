@@ -4,10 +4,10 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
-import { useActiveSession } from "@/lib/activeSession";
 import { iso, daysAgo, todayIso, type Any } from "@/core/mylift";
 import { formatDate, formatRelative } from "@/lib/format";
 import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, SyncDot, LINE } from "@/ui/kit";
@@ -15,8 +15,7 @@ import { IndexChart } from "@/ui/charts";
 
 export default function Pesee() {
   const insets = useSafeAreaInsets();
-  const { activeSession } = useActiveSession();
-  const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
+  const router = useRouter();
   const data = useData();
   const { weights } = data;
   const [period, setPeriod] = useState("90");
@@ -56,7 +55,11 @@ export default function Pesee() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 10, minHeight: 44 }}>
+        <Ionicons name="chevron-back" size={16} color={C.ink2} />
+        <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Stats</Text>
+      </Pressable>
       <View style={{ marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Pesée.</Text>

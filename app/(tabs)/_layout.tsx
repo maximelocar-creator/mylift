@@ -9,6 +9,7 @@ import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { C } from "@/lib/theme";
 import { LINE } from "@/ui/kit";
 import { useActiveSession } from "@/lib/activeSession";
+import { useSocial } from "@/lib/social";
 import { pad2 } from "@/lib/format";
 
 function SessionElapsed({ startedAt }: { startedAt: number }) {
@@ -29,6 +30,7 @@ export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const { activeSession } = useActiveSession();
+  const { incoming } = useSocial();
   const showBanner = !!activeSession && !pathname.startsWith("/journal");
 
   return (
@@ -96,23 +98,28 @@ export default function TabsLayout() {
       >
         <Tabs.Screen
           name="index"
-          options={{ title: "Dashboard", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} /> }}
+          options={{ title: "Feed", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} /> }}
         />
         <Tabs.Screen
           name="journal"
           options={{ title: "Journal", tabBarIcon: ({ color, size }) => <Ionicons name="barbell-outline" size={size} color={color} /> }}
         />
         <Tabs.Screen
-          name="progression"
-          options={{ title: "Progrès", tabBarIcon: ({ color, size }) => <Ionicons name="trending-up-outline" size={size} color={color} /> }}
+          name="stats"
+          options={{ title: "Stats", tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} /> }}
         />
         <Tabs.Screen
-          name="pesee"
-          options={{ title: "Pesée", tabBarIcon: ({ color, size }) => <Ionicons name="scale-outline" size={size} color={color} /> }}
+          name="notifs"
+          options={{
+            title: "Notifs",
+            tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size} color={color} />,
+            tabBarBadge: incoming.length > 0 ? incoming.length : undefined,
+            tabBarBadgeStyle: { backgroundColor: C.accent, color: "#fff", fontSize: 10, fontWeight: "700" },
+          }}
         />
         <Tabs.Screen
-          name="params"
-          options={{ title: "Réglages", tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }}
+          name="profil"
+          options={{ title: "Profil", tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}
         />
       </Tabs>
     </View>

@@ -346,7 +346,7 @@ export default function Journal() {
           <Btn full onPress={() => router.push("/generator")}>
             🧠 Générer mon programme
           </Btn>
-          <Btn kind="ghost" full onPress={() => router.navigate("/params")}>
+          <Btn kind="ghost" full onPress={() => router.push("/settings")}>
             Créer un programme vide
           </Btn>
         </View>

@@ -5,17 +5,17 @@ import { View, Text, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { C, mono } from "@/lib/theme";
-import { useData } from "@/lib/store";
-import { useActiveSession } from "@/lib/activeSession";
-import { exoKeyNoModel, exoMuscleGroup, iso, daysAgo, type Any } from "@/core/mylift";
-import { usePeriodStats } from "@/lib/stats";
-import { formatNum } from "@/lib/format";
-import { Segment, Card, Chip, Label, SectionLabel, ScreenSkeleton, SyncDot, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
-import { TonnageBars } from "@/ui/charts";
+import { C, mono } from "../lib/theme";
+import { useData } from "../lib/store";
+import { useActiveSession } from "../lib/activeSession";
+import { exoKeyNoModel, exoMuscleGroup, iso, daysAgo, type Any } from "../core/mylift";
+import { usePeriodStats } from "../lib/stats";
+import { formatNum } from "../lib/format";
+import { Segment, Card, Chip, Label, SectionLabel, ScreenSkeleton, SyncDot, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "../ui/kit";
+import { TonnageBars } from "../ui/charts";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-export default function Progression() {
+export default function AnalyseSection() {
   const insets = useSafeAreaInsets();
   const { activeSession } = useActiveSession();
   const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
@@ -189,22 +189,15 @@ export default function Progression() {
     );
   };
 
-  if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
-
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
-      {/* Header */}
-      <View style={{ marginBottom: 20 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent }} />
-          <Text style={[mono, { fontSize: 10.5, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", color: C.ink3 }]}>
-            {period === "all" ? "Tout l'historique" : "Derniers " + periodDays + " jours"}
-          </Text>
-          <View style={{ marginLeft: "auto" }}>
-            <SyncDot />
-          </View>
-        </View>
-        <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Progression.</Text>
+    <View>
+      {/* En-tête de section (le titre d'écran est porté par l'onglet Stats) */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 26, paddingBottom: 12, paddingHorizontal: 4 }}>
+        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent }} />
+        <Text style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 1.3, textTransform: "uppercase", color: C.ink3 }}>Analyse</Text>
+        <Text style={[mono, { marginLeft: "auto", fontSize: 11, fontWeight: "600", color: C.ink3 }]}>
+          {period === "all" ? "tout l'historique" : periodDays + " jours"}
+        </Text>
       </View>
 
       <Segment
@@ -255,6 +248,6 @@ export default function Progression() {
       <Animated.View key={view} entering={FadeIn.duration(200)}>
         {view === "muscles" ? renderMuscles() : renderExos()}
       </Animated.View>
-    </ScrollView>
+    </View>
   );
 }

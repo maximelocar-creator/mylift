@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/theme";
 import { DataProvider } from "@/lib/store";
 import { ActiveSessionProvider } from "@/lib/activeSession";
+import { SocialProvider } from "@/lib/social";
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -48,6 +49,11 @@ export default function RootLayout() {
         <Stack.Screen name="program/[id]" />
         <Stack.Screen name="generator" />
         <Stack.Screen name="volume/[id]" />
+        <Stack.Screen name="pesee" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="search" />
+        <Stack.Screen name="user/[id]" />
+        <Stack.Screen name="profile-edit" />
         <Stack.Screen name="home" options={{ presentation: "modal" }} />
       </Stack.Protected>
       <Stack.Protected guard={!session}>

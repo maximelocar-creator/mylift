@@ -8,7 +8,6 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
-import { useActiveSession } from "@/lib/activeSession";
 import { supabase } from "@/lib/supabase";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
 import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
@@ -23,8 +22,6 @@ const MODEL_COLOR_HEX: Record<string, string> = {
 
 export default function Params() {
   const insets = useSafeAreaInsets();
-  const { activeSession } = useActiveSession();
-  const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
   const router = useRouter();
   const data = useData();
   const { profile, programs, exerciseLib, muscleGroups, subGroups, pendingSync } = data;
@@ -76,7 +73,11 @@ export default function Params() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 10, minHeight: 44 }}>
+        <Ionicons name="chevron-back" size={16} color={C.ink2} />
+        <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Profil</Text>
+      </Pressable>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Réglages.</Text>
         <SyncDot />

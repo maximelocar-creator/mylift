@@ -1,0 +1,155 @@
+// Recherche d'utilisateurs par username — cartes profil publiques minimales
+// (jamais de données d'entraînement) + bouton Suivre (demande pending).
+import { useEffect, useRef, useState } from "react";
+import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { C, L } from "@/lib/theme";
+import { haptic } from "@/lib/haptics";
+import { useData } from "@/lib/store";
+import { useSocial } from "@/lib/social";
+import * as social from "@/db/social";
+import { Btn } from "@/ui/kit";
+import { Avatar } from "@/ui/Avatar";
+import type { Any } from "@/core/mylift";
+
+export default function Search() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { userId } = useData();
+  const { outgoing, refreshSocial } = useSocial();
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<Any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [followStates, setFollowStates] = useState<Record<string, string>>({}); // id → 'none'|'pending'|'accepted'
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSearch = async (query: string) => {
+    if (query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const rows = await social.searchProfiles(query.trim(), userId!);
+      setResults(rows);
+      // état de follow pour chaque résultat
+      const states: Record<string, string> = {};
+      await Promise.all(
+        rows.map(async (r) => {
+          const f = await social.fetchMyFollowTo(userId!, r.id);
+          states[r.id] = f ? f.status : "none";
+        })
+      );
+      setFollowStates(states);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => runSearch(q), 350);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, [q]);
+
+  const toggleFollow = async (otherId: string) => {
+    const cur = followStates[otherId] || "none";
+    try {
+      if (cur === "none") {
+        setFollowStates({ ...followStates, [otherId]: "pending" });
+        await social.sendFollowRequest(userId!, otherId);
+        haptic("success");
+      } else if (cur === "pending") {
+        setFollowStates({ ...followStates, [otherId]: "none" });
+        await social.unfollow(userId!, otherId);
+        haptic("light");
+      }
+      refreshSocial();
+    } catch {
+      setFollowStates({ ...followStates, [otherId]: cur });
+      haptic("error");
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg0 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 10, minHeight: 44 }}>
+          <Ionicons name="chevron-back" size={16} color={C.ink2} />
+          <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Retour</Text>
+        </Pressable>
+        <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0, marginBottom: 16 }}>Recherche.</Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: "rgba(255,255,255,.04)",
+            borderWidth: 1,
+            borderColor: L.line,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            marginBottom: 14,
+          }}
+        >
+          <Ionicons name="search" size={16} color={C.ink3} />
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            placeholder="Username…"
+            placeholderTextColor={C.ink3}
+            autoCapitalize="none"
+            autoFocus
+            style={{ flex: 1, color: C.ink0, paddingVertical: 12, fontSize: 15 }}
+          />
+          {searching && <ActivityIndicator size="small" color={C.ink3} />}
+        </View>
+
+        {q.trim().length >= 2 && !searching && results.length === 0 && (
+          <Text style={{ color: C.ink3, textAlign: "center", padding: 24 }}>Aucun utilisateur pour « {q.trim()} »</Text>
+        )}
+
+        <View style={{ gap: 6 }}>
+          {results.map((r) => {
+            const st = followStates[r.id] || "none";
+            return (
+              <View
+                key={r.id}
+                style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16 }}
+              >
+                <Pressable onPress={() => router.push(`/user/${r.id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                  <Avatar profile={r} size={44} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>
+                      @{r.username}
+                    </Text>
+                    {!!r.city && <Text style={{ fontSize: 11, color: C.ink3, marginTop: 1 }}>{r.city}</Text>}
+                  </View>
+                </Pressable>
+                {st === "accepted" ? (
+                  <View style={{ paddingVertical: 6, paddingHorizontal: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.success }}>Suivi ✓</Text>
+                  </View>
+                ) : (
+                  <Btn kind={st === "pending" ? "ghost" : "primary"} sm onPress={() => toggleFollow(r.id)}>
+                    {st === "pending" ? "Demandé" : "Suivre"}
+                  </Btn>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
