@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "MyLift",
+    "slug": "mylift-v2",
+    "scheme": "mylift",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#050509",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#050509"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.maxime.mylift"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "extra": {
+      "eas": {
+        "projectId": "REMPLACE_APRES_EAS_INIT"
+      }
+    }
+  }
+}
