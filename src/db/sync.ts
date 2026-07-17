@@ -65,10 +65,12 @@ export async function pendingSyncCount(): Promise<number> {
 /* ------------------------------------------------------------------ */
 /* PULL — hydratation depuis Supabase                                   */
 /* ------------------------------------------------------------------ */
-async function fetchAll(table: string): Promise<Any[]> {
+async function fetchAll(table: string, eq?: [string, string]): Promise<Any[]> {
   const rows: Any[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(table).select("*").range(from, from + PAGE - 1);
+    let q = supabase.from(table).select("*").range(from, from + PAGE - 1);
+    if (eq) q = q.eq(eq[0], eq[1]);
+    const { data, error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
     rows.push(...(data ?? []));
     if (!data || data.length < PAGE) break;
@@ -109,10 +111,14 @@ export async function pullAll(): Promise<boolean> {
   };
   const JSON_COLS = new Set(["muscle_status", "priorities", "sub_group_split", "volume_targets", "choices", "history"]);
 
-  // Fetch d'abord tout (hors transaction), puis remplacement atomique
+  // Fetch d'abord tout (hors transaction), puis remplacement atomique.
+  // profiles est lisible publiquement (découverte) : sans filtre, le miroir
+  // local embarquerait les profils des autres et getProfile() pourrait
+  // renvoyer quelqu'un d'autre — on ne rapatrie QUE sa propre ligne.
+  const uid = (await supabase.auth.getSession()).data.session?.user.id;
   const fetched: Record<string, Any[]> = {};
   for (const table of Object.keys(TABLES)) {
-    fetched[table] = await fetchAll(table);
+    fetched[table] = await fetchAll(table, table === "profiles" && uid ? ["id", uid] : undefined);
   }
 
   const db = await getDb();

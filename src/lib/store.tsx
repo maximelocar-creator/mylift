@@ -69,8 +69,9 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
   const mounted = useRef(true);
 
   const loadFromLocal = useCallback(async () => {
+    if (!userId) return;
     const [p, logs, lib, progs, w, mg, sg, notes, pend] = await Promise.all([
-      repo.getProfile(),
+      repo.getProfile(userId),
       repo.getJournalLogs(),
       repo.getExerciseLib(),
       repo.getPrograms(),
@@ -90,7 +91,7 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
     setSubGroups(sg);
     setSessionNotes(notes);
     setPendingSync(pend);
-  }, []);
+  }, [userId]);
 
   const reload = useCallback(async () => {
     await loadFromLocal();

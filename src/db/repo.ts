@@ -337,9 +337,9 @@ export async function deleteWeight(weightId: string): Promise<void> {
 /* ------------------------------------------------------------------ */
 /* Profil / programme courant / taxonomie                              */
 /* ------------------------------------------------------------------ */
-export async function getProfile(): Promise<Any | null> {
+export async function getProfile(userId: string): Promise<Any | null> {
   const db = await getDb();
-  const row = await db.getFirstAsync<Any>("SELECT * FROM profiles LIMIT 1");
+  const row = await db.getFirstAsync<Any>("SELECT * FROM profiles WHERE id = ?", [userId]);
   return row ? { id: row.id, username: row.username, currentProgramId: row.current_program_id } : null;
 }
 
