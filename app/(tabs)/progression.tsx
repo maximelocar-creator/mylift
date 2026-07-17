@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
+import { useActiveSession } from "@/lib/activeSession";
 import { exoKeyNoModel, exoMuscleGroup, iso, daysAgo, type Any } from "@/core/mylift";
 import { usePeriodStats } from "@/lib/stats";
 import { formatNum } from "@/lib/format";
@@ -15,6 +16,8 @@ import { TonnageBars } from "@/ui/charts";
 
 export default function Progression() {
   const insets = useSafeAreaInsets();
+  const { activeSession } = useActiveSession();
+  const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
   const router = useRouter();
   const { journalLogs, exerciseLib, ready } = useData();
   const [period, setPeriod] = useState("90");
@@ -188,7 +191,7 @@ export default function Progression() {
   if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
       {/* Header */}
       <View style={{ marginBottom: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>

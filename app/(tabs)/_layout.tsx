@@ -32,12 +32,14 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
+      {/* Flottante au-dessus de la tab bar (style mini-player) : ne recouvre
+          jamais les headers et reste co-localisée avec la navigation. */}
       {showBanner && (
         <Pressable
           onPress={() => router.navigate("/journal")}
           style={{
             position: "absolute",
-            top: insets.top,
+            bottom: 64 + insets.bottom + 8,
             left: 12,
             right: 12,
             zIndex: 50,
@@ -48,10 +50,12 @@ export default function TabsLayout() {
             paddingVertical: 10,
             paddingHorizontal: 14,
             backgroundColor: C.accent,
-            borderBottomLeftRadius: 14,
-            borderBottomRightRadius: 14,
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
+            borderRadius: 14,
+            shadowColor: C.accent,
+            shadowOpacity: 0.45,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 8,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>

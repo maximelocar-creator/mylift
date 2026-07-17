@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
+import { useActiveSession } from "@/lib/activeSession";
 import { iso, type Any } from "@/core/mylift";
 import { usePeriodStats, useWeekStats } from "@/lib/stats";
 import { formatNum, formatDur, formatRelative, formatDate, DOW_FR_S } from "@/lib/format";
@@ -79,6 +80,8 @@ const DASHBOARD_KPIS: Record<string, KpiDef> = {
 
 export default function Dashboard() {
   const insets = useSafeAreaInsets();
+  const { activeSession } = useActiveSession();
+  const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
   const router = useRouter();
   const data = useData();
   const { journalLogs, exerciseLib, programs, profile, muscleGroups, weights, ready } = data;
@@ -138,7 +141,7 @@ export default function Dashboard() {
   if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
       {/* Header */}
       <View style={{ marginBottom: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>

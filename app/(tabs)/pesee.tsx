@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
+import { useActiveSession } from "@/lib/activeSession";
 import { iso, daysAgo, todayIso, type Any } from "@/core/mylift";
 import { formatDate, formatRelative } from "@/lib/format";
 import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, LINE } from "@/ui/kit";
@@ -14,6 +15,8 @@ import { IndexChart } from "@/ui/charts";
 
 export default function Pesee() {
   const insets = useSafeAreaInsets();
+  const { activeSession } = useActiveSession();
+  const bottomPad = 24 + (activeSession ? 64 : 0); // espace pour la bannière séance flottante
   const data = useData();
   const { weights } = data;
   const [period, setPeriod] = useState("90");
@@ -53,7 +56,7 @@ export default function Pesee() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 24 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
       <View style={{ marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Pesée.</Text>
         <Btn sm onPress={() => setAddOpen(true)}>
