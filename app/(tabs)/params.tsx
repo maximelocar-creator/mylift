@@ -11,7 +11,7 @@ import { useData } from "@/lib/store";
 import { useActiveSession } from "@/lib/activeSession";
 import { supabase } from "@/lib/supabase";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
-import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
 
@@ -33,6 +33,7 @@ export default function Params() {
   const [newProgMenuOpen, setNewProgMenuOpen] = useState(false);
   const [newProgOpen, setNewProgOpen] = useState(false);
   const [newProgName, setNewProgName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
   const [libMuscle, setLibMuscle] = useState<string | null>(null);
   const [addExoOpen, setAddExoOpen] = useState(false);
   const [newExoName, setNewExoName] = useState("");
@@ -236,7 +237,7 @@ export default function Params() {
             haptic("light");
             setNewProgMenuOpen(false);
             setNewProgName("");
-            setNewProgOpen(true);
+            afterSheetClose(() => setNewProgOpen(true));
           }}
         >
           ✏️ Programme vide
@@ -263,15 +264,21 @@ export default function Params() {
             marginBottom: 12,
           }}
         />
+        {!!createError && <Text style={{ color: C.danger, fontSize: 12, marginBottom: 10 }}>{createError}</Text>}
         <Btn
           full
           disabled={!newProgName.trim()}
           onPress={async () => {
-            const p = await data.createProgram(newProgName.trim());
-            await data.setCurrentProgram(p.id);
-            setNewProgOpen(false);
-            haptic("success");
-            router.push(`/program/${p.id}`);
+            try {
+              const p = await data.createProgram(newProgName.trim());
+              await data.setCurrentProgram(p.id);
+              setNewProgOpen(false);
+              haptic("success");
+              afterSheetClose(() => router.push(`/program/${p.id}`));
+            } catch (e: any) {
+              haptic("error");
+              setCreateError(e?.message ?? String(e));
+            }
           }}
         >
           ✓ Créer

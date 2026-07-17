@@ -18,6 +18,15 @@ import { C, R, L, MOTION, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
 
+/**
+ * Enchaîner deux sheets : sur iOS, présenter une Modal pendant qu'une autre
+ * joue son animation de fermeture échoue silencieusement. Ferme d'abord,
+ * puis ouvre après la fin de l'animation de sortie.
+ */
+export function afterSheetClose(fn: () => void) {
+  setTimeout(fn, MOTION.local + 120);
+}
+
 // Ré-exports de compat (les écrans importent ces noms depuis le kit)
 export const LINE = L.line;
 export const LINE_STRONG = L.lineStrong;

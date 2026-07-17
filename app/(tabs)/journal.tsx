@@ -11,7 +11,7 @@ import { useData } from "@/lib/store";
 import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
 import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } from "@/lib/format";
-import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
 import { haptic } from "@/lib/haptics";
@@ -426,7 +426,7 @@ export default function Journal() {
                   style={{ flex: 1 }}
                   onPress={() => {
                     setOtherPickerOpen(false);
-                    setConfirmStartSession(s);
+                    afterSheetClose(() => setConfirmStartSession(s));
                   }}
                 >
                   <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>{s.name}</Text>
@@ -438,7 +438,7 @@ export default function Journal() {
                 <Pressable
                   onPress={() => {
                     setOtherPickerOpen(false);
-                    setNoteEdit({ session: s, draft: sNote || "" });
+                    afterSheetClose(() => setNoteEdit({ session: s, draft: sNote || "" }));
                   }}
                   style={{
                     width: 32,
