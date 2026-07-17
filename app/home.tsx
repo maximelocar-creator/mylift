@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/lib/supabase";
 import { importBackup, ImportResult } from "@/db/importBackup";
 import { C, R, mono } from "@/lib/theme";

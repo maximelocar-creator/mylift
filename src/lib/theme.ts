@@ -19,6 +19,7 @@ export const C = {
 export const R = { sm: 12, md: 16, lg: 22 };
 
 // Chiffres en tabular-nums : signature MyLift
-export const mono = {
-  fontVariant: ["tabular-nums"] as const,
+import type { TextStyle } from "react-native";
+export const mono: TextStyle = {
+  fontVariant: ["tabular-nums"],
 };
