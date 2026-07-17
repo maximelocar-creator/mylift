@@ -2,11 +2,11 @@
 // séance future, historique groupé par mois, détail + suppression.
 // Quand une séance est active, l'écran devient la séance live (comme v40).
 import { useMemo, useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, LayoutAnimation } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { C, R, mono } from "@/lib/theme";
+import { C, R, mono, MOTION } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
@@ -16,7 +16,7 @@ import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, AC
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
 import { haptic } from "@/lib/haptics";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated";
 import { ScreenSkeleton } from "@/ui/kit";
 
 const noteKey = (programId: string | null | undefined, sessionId: string) => (programId || "") + "::" + sessionId;
@@ -52,18 +52,9 @@ function SessionCard({
   const more = Math.max(0, exos.length - 3);
 
   return (
+    <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)}>
     <Pressable
-      onPress={() => {
-        // Dépli animé : LayoutAnimation anime la hauteur de la carte ET le
-        // repositionnement de tout ce qui suit dans la liste
-        LayoutAnimation.configureNext({
-          duration: 280,
-          update: { type: "easeInEaseOut" },
-          create: { type: "easeInEaseOut", property: "opacity" },
-          delete: { type: "easeInEaseOut", property: "opacity" },
-        });
-        setExpanded(!expanded);
-      }}
+      onPress={() => setExpanded(!expanded)}
       style={{
         backgroundColor: recommended ? C.bg1 : C.bg2,
         borderWidth: 1,
@@ -141,7 +132,10 @@ function SessionCard({
       )}
 
       {expanded && (
-        <View style={{ marginBottom: 12, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: LINE }}>
+        <Animated.View
+          entering={FadeInDown.duration(MOTION.local)}
+          style={{ marginBottom: 12, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: LINE }}
+        >
           {exos.map((ex: Any, i: number) => {
             const c = ex.choices?.[0];
             const libEx = c?.exId ? lib.find((l) => l.id === c.exId) : null;
@@ -164,7 +158,7 @@ function SessionCard({
               </View>
             );
           })}
-        </View>
+        </Animated.View>
       )}
 
       {note ? (
@@ -196,6 +190,7 @@ function SessionCard({
         Commencer
       </Btn>
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -673,7 +668,13 @@ export default function Journal() {
               await data.updateLog(updated);
               setDetailLog(updated);
             }}
-            onShare={() => setShareLog(detailLog)}
+            onShare={() => {
+              // Piège Modal iOS (CLAUDE.md) : on ferme le détail d'abord,
+              // puis on présente le sélecteur après l'animation de sortie
+              const log = detailLog;
+              setDetailLog(null);
+              afterSheetClose(() => setShareLog(log));
+            }}
           />
         )}
       </Sheet>
