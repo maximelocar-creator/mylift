@@ -255,12 +255,28 @@ recherche, profil autrui privé, feed minimal (posts des amis).
 Test de fuite `npm run test:leak` (compte neuf réel) : 8/8 étanche.
 Apple/Google câblés (src/lib/oauth.ts), à valider au premier build EAS.
 Onboarding guidé : FAIT (app/onboarding.tsx) — gate dans app/(tabs)/_layout
-(pas de username → redirect onboarding) : étape 1 profil (username avec
-vérif d'unicité live, ville, bio ≤160, photo via le pipeline avatar
-partagé src/lib/images.ts), étape 2 premier programme (auto → générateur,
-manuel → éditeur de programme), skippable. L'import backup reste un outil
-interne isolé (lien discret sous le login), hors du flow public.
+(pas de username OU drapeau redoOnboarding → redirect onboarding) :
+étape 1 profil (username avec vérif d'unicité live, ville, bio ≤160,
+photo via le pipeline avatar partagé src/lib/images.ts), étape 2 premier
+programme (auto → générateur, manuel → éditeur de programme), skippable,
+étape 3 Bienvenue @username + carte "Ajouter des amis" (recherche) après
+création du programme. L'import backup reste un outil interne isolé
+(lien discret sous le login), hors du flow public.
+Compte NEUF : aucune ligne muscle_groups/sub_groups en base → le
+générateur n'aurait aucun muscle à afficher. Seed automatique de la
+taxonomie v40 par défaut (repo.seedDefaultTaxonomyIfEmpty), déclenché
+UNIQUEMENT après un pull confirmé vide (jamais de doublon pour un compte
+existant sur un nouveau device), puis poussé via la queue de sync.
 → Phase 2 TERMINÉE (reste la validation Apple/Google au 1er build EAS).
+
+IDENTITÉ / MIROIR LOCAL — deux bugs payés, ne pas les réintroduire :
+1) profiles est lisible publiquement → le pull ne rapatrie QUE sa propre
+   ligne (sync.ts), et repo.getProfile(userId) filtre par id (jamais de
+   SELECT ... LIMIT 1 sans WHERE sur une table multi-comptes).
+2) La SQLite locale est un fichier unique par device, tagué meta
+   db_owner : au login d'un autre compte → resetLocalDb() complet avant
+   toute lecture (sinon résidus d'affichage de l'ancien compte et queue
+   de sync rejetée par la RLS qui gèle le pull du nouveau).
 
 DÉCISION VERROUILLÉE (Maxime) — modèle AMIS, pas follow/follow-back :
 une demande pending → acceptation → relation réciproque. Contraintes RLS
