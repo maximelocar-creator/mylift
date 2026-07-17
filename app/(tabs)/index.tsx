@@ -21,7 +21,7 @@ import {
   type Any,
 } from "@/core/mylift";
 import { formatNum, formatDur, formatRelative, formatDate, DOW_FR_S } from "@/lib/format";
-import { Sheet, Card, Chip, Label, LINE, ACCENT_WASH, GOLD_WASH, SUCCESS_WASH } from "@/ui/kit";
+import { Sheet, Card, Chip, Label, SyncDot, ScreenSkeleton, LINE, ACCENT_WASH } from "@/ui/kit";
 
 type KpiDef = { label: string; compute: (ctx: Any) => { big: string; unit: string; sub: string; [k: string]: any } };
 
@@ -96,7 +96,7 @@ export default function Dashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const data = useData();
-  const { journalLogs, exerciseLib, programs, profile, muscleGroups, weights } = data;
+  const { journalLogs, exerciseLib, programs, profile, muscleGroups, weights, ready } = data;
 
   // Préférence d'affichage : LOCALE au device (décision verrouillée)
   const [heroKpi, setHeroKpi] = useState<string>("surcharge");
@@ -111,6 +111,16 @@ export default function Dashboard() {
     AsyncStorage.setItem("mylift_dash_hero", k).catch(() => {});
     setKpiPickerOpen(false);
   };
+
+  // Outil interne : lien "Importer un ancien backup" armé depuis le login
+  useEffect(() => {
+    AsyncStorage.getItem("mylift_open_import_once").then((v) => {
+      if (v === "1") {
+        AsyncStorage.removeItem("mylift_open_import_once");
+        router.push("/home");
+      }
+    });
+  }, []);
 
   const currentProgram = useMemo(() => programs.find((p) => p.id === profile?.currentProgramId) || programs[0] || null, [programs, profile]);
   const ctx = { journalLogs, exerciseLib, programs, currentProgram };
@@ -169,6 +179,8 @@ export default function Dashboard() {
   const sessPct = Math.min(100, (weekKPI.curr.sessions / totalSessions) * 100);
   const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
 
+  if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>
       {/* Header */}
@@ -178,6 +190,9 @@ export default function Dashboard() {
           <Text style={[mono, { fontSize: 10.5, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", color: C.ink3 }]}>
             Cette semaine · {formatDate(iso(weekStart))} → {formatDate(iso(weekEnd))}
           </Text>
+          <View style={{ marginLeft: "auto" }}>
+            <SyncDot />
+          </View>
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
           <Text style={{ fontSize: 28, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>
@@ -329,7 +344,7 @@ export default function Dashboard() {
 
       {/* Muscle qui progresse */}
       {muscleProgs.length > 0 && (
-        <Pressable onPress={() => router.navigate("/progression")}>
+        <Pressable onPress={() => router.push(`/muscle/${encodeURIComponent(muscleProgs[0].muscleGroup)}?period=28`)}>
           <Card style={{ marginBottom: 10 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

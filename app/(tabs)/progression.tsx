@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
@@ -19,16 +20,15 @@ import {
 import { formatNum } from "@/lib/format";
 import { Segment, Card, Chip, Label, SectionLabel, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
 import { TonnageBars } from "@/ui/charts";
-import ExoDetail from "@/screens/ExoDetail";
-import MuscleDetail from "@/screens/MuscleDetail";
 
 export default function Progression() {
   const insets = useSafeAreaInsets();
-  const { journalLogs, exerciseLib } = useData();
+  const router = useRouter();
+  const { journalLogs, exerciseLib, ready } = useData();
   const [period, setPeriod] = useState("90");
   const [view, setView] = useState<"exos" | "muscles">("exos");
-  const [detailKey, setDetailKey] = useState<string | null>(null);
-  const [detailMuscle, setDetailMuscle] = useState<string | null>(null);
+  const setDetailKey = (key: string) => router.push(`/exo/${encodeURIComponent(key)}`);
+  const setDetailMuscle = (group: string) => router.push(`/muscle/${encodeURIComponent(group)}?period=${period === "all" ? 99999 : period}`);
 
   const periodDays = period === "all" ? 99999 : parseInt(period);
 
@@ -59,20 +59,6 @@ export default function Progression() {
 
   const periodLabel =
     period === "7" ? "7 jours" : period === "30" ? "30 jours" : period === "90" ? "90 jours" : period === "365" ? "1 an" : "tout l'historique";
-
-  if (detailKey) return <ExoDetail keyId={detailKey} onBack={() => setDetailKey(null)} />;
-  if (detailMuscle)
-    return (
-      <MuscleDetail
-        muscleGroup={detailMuscle}
-        initialPeriodDays={periodDays}
-        onBack={() => setDetailMuscle(null)}
-        onOpenExo={(key) => {
-          setDetailMuscle(null);
-          setDetailKey(key);
-        }}
-      />
-    );
 
   /* Liste par muscle */
   const renderMuscles = () => {

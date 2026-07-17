@@ -39,7 +39,9 @@ export default function RootLayout() {
     >
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="home" />
+        <Stack.Screen name="exo/[key]" />
+        <Stack.Screen name="muscle/[group]" />
+        <Stack.Screen name="home" options={{ presentation: "modal" }} />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />

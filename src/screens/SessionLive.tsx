@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "../lib/theme";
+import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
 import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
@@ -185,18 +186,21 @@ function SetRow({
   const clampNonNeg = (n: number) => (n < 0 ? 0 : n);
   const stepWeight = (dir: number) => {
     if (locked) return;
+    haptic("light");
     const cur = parseFloat(set.weight);
     const base = isNaN(cur) ? parseFloat(targetWeight) || 0 : cur;
     onChange("weight", String(clampNonNeg(Math.round((base + dir * 2.5) * 10) / 10)));
   };
   const stepReps = (dir: number) => {
     if (locked) return;
+    haptic("light");
     const cur = parseInt(set.reps);
     const base = isNaN(cur) ? 10 : cur;
     onChange("reps", String(clampNonNeg(base + dir)));
   };
   const stepRir = (dir: number) => {
     if (locked) return;
+    haptic("light");
     const cur = parseInt(set.rir);
     const base = isNaN(cur) ? 1 : cur;
     onChange("rir", String(clampNonNeg(base + dir)));
@@ -379,6 +383,7 @@ export default function SessionLive({
   }, [timerRunning]);
 
   const startTimer = () => {
+    haptic("light");
     timerStartRef.current = Date.now();
     setTimerRunning(true);
     persistTimer({ startedAt: timerStartRef.current, accum: timerAccumRef.current, target: timerTarget });
@@ -392,6 +397,7 @@ export default function SessionLive({
     persistTimer({ startedAt: null, accum: timerAccumRef.current, target: timerTarget });
   };
   const resetTimer = () => {
+    haptic("light");
     timerStartRef.current = null;
     timerAccumRef.current = 0;
     setTimerDisplay(0);
@@ -400,6 +406,7 @@ export default function SessionLive({
     persistTimer({ startedAt: null, accum: 0, target: 120 });
   };
   const addRestTime = () => {
+    haptic("light");
     setTimerTarget((t: number) => {
       const next = t + 30;
       persistTimer({ target: next });
@@ -420,6 +427,7 @@ export default function SessionLive({
     });
   };
   const addSet = (exIdx: number) => {
+    haptic("light");
     updateExo(exIdx, (ex) => {
       const last = ex.sets[ex.sets.length - 1];
       const inherited = last ? { weight: last.weight || "", reps: last.reps || "", rir: "1" } : { weight: "", reps: "", rir: "1" };
@@ -427,9 +435,11 @@ export default function SessionLive({
     });
   };
   const removeSet = (exIdx: number, setIdx: number) => {
+    haptic("light");
     updateExo(exIdx, (ex) => ({ ...ex, sets: ex.sets.filter((_: Any, i: number) => i !== setIdx) }));
   };
   const unconfirmSet = (exIdx: number, setIdx: number) => {
+    haptic("light");
     updateExo(exIdx, (ex) => {
       const sets = [...ex.sets];
       sets[setIdx] = { ...sets[setIdx], _confirmed: false };
@@ -526,11 +536,15 @@ export default function SessionLive({
     const fallbackWeight =
       (s.weight === "" || s.weight === null || s.weight === undefined) && ex.targetWeight ? String(ex.targetWeight) : s.weight;
     const sNormalized = { ...s, weight: fallbackWeight };
-    if (!isValidSet(sNormalized)) return;
+    if (!isValidSet(sNormalized)) {
+      haptic("warning");
+      return;
+    }
     // Garde : si l'exo a des modèles dans la lib, sélection obligatoire
     const liveLibEx = ex.exId ? exerciseLib.find((l) => l.id === ex.exId) : null;
     const liveLibModels = liveLibEx?.models || [];
     if (liveLibModels.length > 0 && !ex.activeModelId) {
+      haptic("warning");
       setExoSheetOpen(true);
       return;
     }
@@ -541,7 +555,11 @@ export default function SessionLive({
     onUpdate({ ...session, exercises: newExos });
 
     const prs = computePRsForSet(newExos[exIdx], setIdx, journalLogs);
-    if (prs.length) setLwbPR(prs[0]);
+    haptic("success");
+    if (prs.length) {
+      haptic("heavy");
+      setLwbPR(prs[0]);
+    }
     // Le timer ne démarre JAMAIS automatiquement (décision verrouillée v40).
 
     // Popup dépassement de cible (cible effective = modelTargets si modèle actif)
@@ -570,6 +588,7 @@ export default function SessionLive({
     });
     const hasAnyConfirmed = session.exercises.some((ex: Any) => (ex.sets || []).some((s: Any) => s._confirmed && isValidSet(s)));
     if (pending.length > 0 || !hasAnyConfirmed) {
+      haptic("warning");
       setFinishBlocked({ pending, emptyExos: hasAnyConfirmed ? [] : ["Aucun exercice avec série validée"] });
       return;
     }
@@ -601,6 +620,7 @@ export default function SessionLive({
       })),
       prs: allPRs,
     };
+    haptic("success");
     onSave(log);
   };
 
@@ -648,6 +668,7 @@ export default function SessionLive({
 
   const switchExo = (idx: number) => {
     // Le timer SURVIT au switch d'exo (pas de reset)
+    haptic("light");
     onUpdate({ ...session, currentExoIdx: idx });
   };
 
@@ -689,6 +710,7 @@ export default function SessionLive({
           ? ex.sets.map(() => ({ weight: "", reps: "", rir: "1", _confirmed: false }))
           : ex.sets.map((s: Any) => (s._confirmed ? s : { ...s, weight: "" })),
     }));
+    haptic("medium");
     setExoSheetOpen(false);
   };
 
@@ -898,6 +920,7 @@ export default function SessionLive({
                       ? ex.sets.map(() => ({ weight: "", reps: "", rir: "1", _confirmed: false }))
                       : ex.sets.map((s: Any) => (s._confirmed ? s : { ...s, weight: "" })),
                   }));
+                  haptic("medium");
                   setExoSheetOpen(false);
                 };
                 return (
@@ -1126,6 +1149,7 @@ export default function SessionLive({
               sets: ex.sets.map((s: Any) => (s._confirmed ? s : { ...s, weight: "" })),
             };
           });
+          haptic("medium");
           setPickerOpen(false);
           setExoSheetOpen(false);
         }}

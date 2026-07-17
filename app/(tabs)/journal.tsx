@@ -13,6 +13,8 @@ import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } fro
 import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, LINE, ACCENT_WASH } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
+import { haptic } from "@/lib/haptics";
+import { ScreenSkeleton } from "@/ui/kit";
 
 const noteKey = (programId: string | null | undefined, sessionId: string) => (programId || "") + "::" + sessionId;
 
@@ -235,7 +237,7 @@ function HistoryDetail({ log, onDelete }: { log: Any; onDelete: () => void }) {
 export default function Journal() {
   const insets = useSafeAreaInsets();
   const data = useData();
-  const { journalLogs, programs, profile, exerciseLib, sessionNotes } = data;
+  const { journalLogs, programs, profile, exerciseLib, sessionNotes, ready } = data;
   const { activeSession, setActiveSession } = useActiveSession();
 
   const [detailLog, setDetailLog] = useState<Any | null>(null);
@@ -255,9 +257,12 @@ export default function Journal() {
   }, [programs, profile]);
 
   const startSession = (progSession: Any) => {
+    haptic("medium");
     const note = sessionNotes[noteKey(currentProgram?.id, progSession.id)] || null;
     setActiveSession(buildLiveSession(progSession, currentProgram, exerciseLib, journalLogs, note));
   };
+
+  if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
   // Séance live active → l'écran EST la séance (comme v40)
   if (activeSession) {

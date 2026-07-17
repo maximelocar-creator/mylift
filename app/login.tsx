@@ -1,16 +1,30 @@
-import { useState } from "react";
-import {
-  View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform,
-} from "react-native";
+// Login / signup — parcours principal des futurs testeurs : finition native.
+// L'import de backup v40 (outil interne de migration) est isolé derrière un
+// lien discret en bas d'écran, jamais une étape du flow.
+import { useEffect, useState } from "react";
+import { View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { supabase } from "@/lib/supabase";
-import { C, R } from "@/lib/theme";
+import { C, R, L, MOTION } from "@/lib/theme";
+import { haptic } from "@/lib/haptics";
+
+// Lu par le Dashboard au premier rendu : ouvre l'écran d'import une fois.
+export const OPEN_IMPORT_FLAG = "mylift_open_import_once";
 
 export default function Login() {
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [importArmed, setImportArmed] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(OPEN_IMPORT_FLAG).then((v) => setImportArmed(v === "1"));
+  }, []);
 
   const submit = async () => {
     setBusy(true);
@@ -21,12 +35,32 @@ export default function Login() {
         : supabase.auth.signUp({ email: email.trim(), password });
     const { error } = await fn;
     setBusy(false);
-    if (error) setMsg(error.message);
-    // Succès : la redirection est gérée par le layout racine (onAuthStateChange)
+    if (error) {
+      haptic("error");
+      setMsg(error.message);
+    } else {
+      haptic("success");
+      // La redirection est gérée par le layout racine (routes protégées)
+    }
   };
 
-  const input = {
-    backgroundColor: C.bg2,
+  const toggleImport = async () => {
+    const next = !importArmed;
+    setImportArmed(next);
+    haptic("light");
+    if (next) await AsyncStorage.setItem(OPEN_IMPORT_FLAG, "1");
+    else await AsyncStorage.removeItem(OPEN_IMPORT_FLAG);
+  };
+
+  const canSubmit = !!email && password.length >= 6 && !busy;
+
+  const btnScale = useSharedValue(1);
+  const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
+
+  const inputStyle = {
+    backgroundColor: "rgba(255,255,255,.04)",
+    borderWidth: 1,
+    borderColor: L.line,
     color: C.ink0,
     borderRadius: R.sm,
     paddingHorizontal: 16,
@@ -40,60 +74,96 @@ export default function Login() {
       style={{ flex: 1, backgroundColor: C.bg0, justifyContent: "center", padding: 24 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={{ color: C.ink0, fontSize: 34, fontWeight: "800", marginBottom: 4 }}>
-        My<Text style={{ color: C.accent }}>Lift</Text>
-      </Text>
-      <Text style={{ color: C.ink2, fontSize: 15, marginBottom: 32 }}>
-        {mode === "login" ? "Connexion" : "Créer un compte"}
-      </Text>
+      <Animated.View entering={FadeInDown.duration(MOTION.view).springify().damping(24)}>
+        <Text style={{ color: C.ink0, fontSize: 38, fontWeight: "900", letterSpacing: -1.5, marginBottom: 4 }}>
+          My<Text style={{ color: C.accent }}>Lift</Text>
+        </Text>
+        <Text style={{ color: C.ink2, fontSize: 15, marginBottom: 32 }}>{mode === "login" ? "Connexion" : "Créer un compte"}</Text>
+      </Animated.View>
 
-      <TextInput
-        style={input}
-        placeholder="Email"
-        placeholderTextColor={C.ink3}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={input}
-        placeholder="Mot de passe"
-        placeholderTextColor={C.ink3}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <Animated.View entering={FadeInDown.delay(60).duration(MOTION.view).springify().damping(24)}>
+        <TextInput
+          style={inputStyle}
+          placeholder="Email"
+          placeholderTextColor={C.ink3}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={inputStyle}
+          placeholder="Mot de passe"
+          placeholderTextColor={C.ink3}
+          secureTextEntry
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          value={password}
+          onChangeText={setPassword}
+        />
+      </Animated.View>
 
-      {msg && <Text style={{ color: C.danger, marginBottom: 12 }}>{msg}</Text>}
+      {msg && (
+        <Animated.Text entering={FadeIn.duration(MOTION.local)} style={{ color: C.danger, marginBottom: 12, fontSize: 13 }}>
+          {msg}
+        </Animated.Text>
+      )}
 
+      <Animated.View entering={FadeInDown.delay(120).duration(MOTION.view).springify().damping(24)} style={btnStyle}>
+        <Pressable
+          onPress={submit}
+          disabled={!canSubmit}
+          onPressIn={() => {
+            btnScale.value = withSpring(0.975, MOTION.microSpring);
+          }}
+          onPressOut={() => {
+            btnScale.value = withSpring(1, MOTION.microSpring);
+          }}
+          style={{
+            backgroundColor: C.accent,
+            borderRadius: R.md,
+            height: 52,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: canSubmit ? 1 : 0.5,
+          }}
+        >
+          {busy ? (
+            <ActivityIndicator color={C.ink0} />
+          ) : (
+            <Text style={{ color: C.ink0, fontSize: 17, fontWeight: "700" }}>{mode === "login" ? "Se connecter" : "Créer le compte"}</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            haptic("light");
+            setMode(mode === "login" ? "signup" : "login");
+          }}
+          style={{ marginTop: 20, minHeight: 44, justifyContent: "center" }}
+        >
+          <Text style={{ color: C.ink2, textAlign: "center" }}>
+            {mode === "login" ? "Pas de compte ? " : "Déjà un compte ? "}
+            <Text style={{ color: C.accentHi, fontWeight: "600" }}>{mode === "login" ? "En créer un" : "Se connecter"}</Text>
+          </Text>
+        </Pressable>
+      </Animated.View>
+
+      {/* Outil interne : import d'un ancien backup v40 (jamais une étape du flow).
+          Armé → l'écran d'import s'ouvrira une fois après connexion. */}
       <Pressable
-        onPress={submit}
-        disabled={busy || !email || password.length < 6}
-        style={({ pressed }) => ({
-          backgroundColor: pressed ? C.accentLo : C.accent,
-          borderRadius: R.md,
-          height: 52,
-          alignItems: "center",
+        onPress={toggleImport}
+        style={{
+          position: "absolute",
+          bottom: insets.bottom + 16,
+          alignSelf: "center",
+          minHeight: 44,
           justifyContent: "center",
-          opacity: busy || !email || password.length < 6 ? 0.5 : 1,
-        })}
+          paddingHorizontal: 16,
+        }}
       >
-        {busy ? (
-          <ActivityIndicator color={C.ink0} />
-        ) : (
-          <Text style={{ color: C.ink0, fontSize: 17, fontWeight: "700" }}>
-            {mode === "login" ? "Se connecter" : "Créer le compte"}
-          </Text>
-        )}
-      </Pressable>
-
-      <Pressable onPress={() => setMode(mode === "login" ? "signup" : "login")} style={{ marginTop: 20, minHeight: 44, justifyContent: "center" }}>
-        <Text style={{ color: C.ink2, textAlign: "center" }}>
-          {mode === "login" ? "Pas de compte ? " : "Déjà un compte ? "}
-          <Text style={{ color: C.accentHi, fontWeight: "600" }}>
-            {mode === "login" ? "En créer un" : "Se connecter"}
-          </Text>
+        <Text style={{ color: importArmed ? C.accentHi : C.ink3, fontSize: 12, textAlign: "center" }}>
+          {importArmed ? "✓ L'import s'ouvrira après connexion" : "Importer un ancien backup"}
         </Text>
       </Pressable>
     </KeyboardAvoidingView>
