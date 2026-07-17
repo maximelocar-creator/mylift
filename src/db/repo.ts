@@ -397,3 +397,178 @@ export async function setSessionNote(userId: string, sessionKey: string, note: s
     }
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* CRUD programmes — édition v40 (updateCurrentProgram par copie mutée) */
+/* ------------------------------------------------------------------ */
+
+type FlatProgram = {
+  program: Any;
+  sessions: Any[];
+  exercises: Any[];
+  targets: Any[];
+};
+
+function flattenProgram(userId: string, p: Any): FlatProgram {
+  const program = {
+    id: p.id,
+    owner_id: userId,
+    name: p.name,
+    level: p.level ?? null,
+    frequency: p.frequency ?? null,
+    muscle_status: JSON.stringify(p.muscleStatus ?? {}),
+    priorities: JSON.stringify(p.priorities ?? []),
+    sub_group_split: JSON.stringify(p.subGroupSplit ?? {}),
+    volume_targets: JSON.stringify(p.volumeTargets ?? {}),
+    auto: p.auto ? 1 : 0,
+  };
+  const sessions: Any[] = [];
+  const exercises: Any[] = [];
+  const targets: Any[] = [];
+  (p.sessions || []).forEach((s: Any, si: number) => {
+    sessions.push({ id: s.id, program_id: p.id, name: s.name, position: si });
+    (s.exercises || []).forEach((ex: Any, ei: number) => {
+      exercises.push({
+        id: ex.id,
+        session_id: s.id,
+        position: ei,
+        sets: parseInt(ex.sets) || 3,
+        muscle_group: ex.muscleGroup ?? null,
+        is_compound: ex.isCompound ? 1 : 0,
+        choices: JSON.stringify(ex.choices ?? []),
+        history: JSON.stringify(ex.history ?? []),
+      });
+      (ex.modelTargets || []).forEach((mt: Any) => {
+        targets.push({ program_exercise_id: ex.id, model_id: mt.modelId, weight: mt.weight === "" || mt.weight === null || mt.weight === undefined ? null : parseFloat(mt.weight) });
+      });
+    });
+  });
+  return { program, sessions, exercises, targets };
+}
+
+/**
+ * Écrit l'état complet d'un programme (forme v40) : diff contre l'état local,
+ * upsert des lignes nouvelles/modifiées, delete des lignes disparues — le tout
+ * en une transaction avec enfilage sync. Le serveur supprime en cascade
+ * (sessions → exos → cibles), donc on ne pousse que les deletes de tête.
+ */
+export async function replaceProgram(userId: string, prog: Any): Promise<void> {
+  const db = await getDb();
+  const flat = flattenProgram(userId, prog);
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    // État local actuel
+    const oldSessions = await tx.getAllAsync<Any>("SELECT * FROM program_sessions WHERE program_id = ?", [prog.id]);
+    const oldSessionIds = oldSessions.map((s) => s.id);
+    const oldPexs = oldSessionIds.length
+      ? await tx.getAllAsync<Any>(`SELECT * FROM program_exercises WHERE session_id IN (${oldSessionIds.map(() => "?").join(",")})`, oldSessionIds)
+      : [];
+    const oldPexIds = oldPexs.map((e) => e.id);
+    const oldTargets = oldPexIds.length
+      ? await tx.getAllAsync<Any>(`SELECT * FROM program_model_targets WHERE program_exercise_id IN (${oldPexIds.map(() => "?").join(",")})`, oldPexIds)
+      : [];
+    const oldProgram = await tx.getFirstAsync<Any>("SELECT * FROM programs WHERE id = ?", [prog.id]);
+
+    const newSessionIds = new Set(flat.sessions.map((s) => s.id));
+    const newPexIds = new Set(flat.exercises.map((e) => e.id));
+    const targetKey = (t: Any) => t.program_exercise_id + "::" + t.model_id;
+    const newTargetKeys = new Set(flat.targets.map(targetKey));
+
+    // 1. Deletes (cibles → exos → séances) — local cascade + sync de tête seulement
+    for (const t of oldTargets) {
+      if (!newTargetKeys.has(targetKey(t))) {
+        await tx.runAsync("DELETE FROM program_model_targets WHERE program_exercise_id = ? AND model_id = ?", [t.program_exercise_id, t.model_id]);
+        // Ne pousse le delete que si le parent survit (sinon le cascade serveur s'en charge)
+        if (newPexIds.has(t.program_exercise_id)) {
+          await enqueue(tx as any, "program_model_targets", "delete", { program_exercise_id: t.program_exercise_id, model_id: t.model_id }, null);
+        }
+      }
+    }
+    for (const e of oldPexs) {
+      if (!newPexIds.has(e.id)) {
+        await tx.runAsync("DELETE FROM program_model_targets WHERE program_exercise_id = ?", [e.id]);
+        await tx.runAsync("DELETE FROM program_exercises WHERE id = ?", [e.id]);
+        if (newSessionIds.has(e.session_id)) {
+          await enqueue(tx as any, "program_exercises", "delete", { id: e.id }, null);
+        }
+      }
+    }
+    for (const s of oldSessions) {
+      if (!newSessionIds.has(s.id)) {
+        await tx.runAsync("DELETE FROM program_sessions WHERE id = ?", [s.id]);
+        await enqueue(tx as any, "program_sessions", "delete", { id: s.id }, null);
+      }
+    }
+
+    // 2. Upserts — uniquement les lignes nouvelles ou modifiées
+    const changed = (oldRow: Any | undefined, newRow: Any) => !oldRow || Object.keys(newRow).some((k) => String(oldRow[k] ?? "") !== String(newRow[k] ?? ""));
+
+    if (changed(oldProgram ?? undefined, flat.program)) {
+      await tx.runAsync(
+        "INSERT OR REPLACE INTO programs (id, owner_id, name, level, frequency, muscle_status, priorities, sub_group_split, volume_targets, auto) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [flat.program.id, flat.program.owner_id, flat.program.name, flat.program.level, flat.program.frequency, flat.program.muscle_status, flat.program.priorities, flat.program.sub_group_split, flat.program.volume_targets, flat.program.auto]
+      );
+      await enqueue(tx as any, "programs", "upsert", { id: prog.id }, {
+        ...flat.program,
+        muscle_status: JSON.parse(flat.program.muscle_status),
+        priorities: JSON.parse(flat.program.priorities),
+        sub_group_split: JSON.parse(flat.program.sub_group_split),
+        volume_targets: JSON.parse(flat.program.volume_targets),
+        auto: !!flat.program.auto,
+      });
+    }
+
+    const oldSessById = Object.fromEntries(oldSessions.map((s) => [s.id, s]));
+    for (const s of flat.sessions) {
+      if (changed(oldSessById[s.id], s)) {
+        await tx.runAsync("INSERT OR REPLACE INTO program_sessions (id, program_id, name, position) VALUES (?,?,?,?)", [s.id, s.program_id, s.name, s.position]);
+        await enqueue(tx as any, "program_sessions", "upsert", { id: s.id }, s);
+      }
+    }
+    const oldPexById = Object.fromEntries(oldPexs.map((e) => [e.id, e]));
+    for (const e of flat.exercises) {
+      if (changed(oldPexById[e.id], e)) {
+        await tx.runAsync(
+          "INSERT OR REPLACE INTO program_exercises (id, session_id, position, sets, muscle_group, is_compound, choices, history) VALUES (?,?,?,?,?,?,?,?)",
+          [e.id, e.session_id, e.position, e.sets, e.muscle_group, e.is_compound, e.choices, e.history]
+        );
+        await enqueue(tx as any, "program_exercises", "upsert", { id: e.id }, {
+          ...e,
+          is_compound: !!e.is_compound,
+          choices: JSON.parse(e.choices),
+          history: JSON.parse(e.history),
+        });
+      }
+    }
+    const oldTargetByKey = Object.fromEntries(oldTargets.map((t) => [targetKey(t), t]));
+    for (const t of flat.targets) {
+      if (changed(oldTargetByKey[targetKey(t)], t)) {
+        await tx.runAsync("INSERT OR REPLACE INTO program_model_targets (program_exercise_id, model_id, weight) VALUES (?,?,?)", [t.program_exercise_id, t.model_id, t.weight]);
+        await enqueue(tx as any, "program_model_targets", "upsert", { program_exercise_id: t.program_exercise_id, model_id: t.model_id }, t);
+      }
+    }
+  });
+}
+
+export async function createProgram(userId: string, name: string): Promise<Any> {
+  const prog = { id: uid(), name, sessions: [], volumeTargets: { program: {}, sessions: {} }, auto: false };
+  await replaceProgram(userId, prog);
+  return prog;
+}
+
+export async function deleteProgram(programId: string): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const sessions = await tx.getAllAsync<Any>("SELECT id FROM program_sessions WHERE program_id = ?", [programId]);
+    for (const s of sessions) {
+      const pexs = await tx.getAllAsync<Any>("SELECT id FROM program_exercises WHERE session_id = ?", [s.id]);
+      for (const e of pexs) {
+        await tx.runAsync("DELETE FROM program_model_targets WHERE program_exercise_id = ?", [e.id]);
+      }
+      await tx.runAsync("DELETE FROM program_exercises WHERE session_id = ?", [s.id]);
+    }
+    await tx.runAsync("DELETE FROM program_sessions WHERE program_id = ?", [programId]);
+    await tx.runAsync("DELETE FROM programs WHERE id = ?", [programId]);
+    // Cascade serveur : un seul delete de tête
+    await enqueue(tx as any, "programs", "delete", { id: programId }, null);
+  });
+}

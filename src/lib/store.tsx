@@ -31,6 +31,10 @@ type DataState = {
   addExerciseModel: (exerciseId: string, model: { name: string; setting?: string | null }) => Promise<Any>;
   setSessionNote: (sessionKey: string, note: string | null) => Promise<void>;
   updateProgramTarget: (pexId: string, opts: { targetModelId?: string | null; exId?: string | null; newWeight: number }) => Promise<void>;
+  updateProgram: (programId: string, mutator: (p: Any) => void) => Promise<void>;
+  createProgram: (name: string) => Promise<Any>;
+  duplicateProgram: (programId: string) => Promise<Any | null>;
+  deleteProgram: (programId: string) => Promise<void>;
 };
 
 const Ctx = createContext<DataState | null>(null);
@@ -172,6 +176,40 @@ export function DataProvider({ userId, children }: { userId: string; children: R
     },
     updateProgramTarget: async (pexId, opts) => {
       await repo.updateProgramExerciseTarget(pexId, opts);
+      await afterWrite();
+    },
+    // Port de updateCurrentProgram (v40) : copie profonde mutée puis diff/écriture
+    updateProgram: async (programId, mutator) => {
+      const current = programs.find((p) => p.id === programId);
+      if (!current) return;
+      const copy = JSON.parse(JSON.stringify(current));
+      mutator(copy);
+      await repo.replaceProgram(userId, copy);
+      await afterWrite();
+    },
+    createProgram: async (name) => {
+      const created = await repo.createProgram(userId, name);
+      await afterWrite();
+      return created;
+    },
+    duplicateProgram: async (programId) => {
+      const current = programs.find((p) => p.id === programId);
+      if (!current) return null;
+      const copy = JSON.parse(JSON.stringify(current));
+      copy.id = repo.uid();
+      copy.name = copy.name + " (copie)";
+      copy.sessions.forEach((s: Any) => {
+        s.id = repo.uid();
+        (s.exercises || []).forEach((ex: Any) => {
+          ex.id = repo.uid();
+        });
+      });
+      await repo.replaceProgram(userId, copy);
+      await afterWrite();
+      return copy;
+    },
+    deleteProgram: async (programId) => {
+      await repo.deleteProgram(programId);
       await afterWrite();
     },
   };
