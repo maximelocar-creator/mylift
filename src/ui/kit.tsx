@@ -77,8 +77,19 @@ export function Chip({ children, tone }: { children: ReactNode; tone?: "primary"
   const bg = tone === "primary" ? L.accentWash : tone === "gold" ? L.goldWash : tone === "success" ? L.successWash : C.bg3;
   const color = tone === "primary" ? C.accentHi : tone === "gold" ? C.gold : tone === "success" ? C.success : C.ink2;
   return (
-    <View style={{ paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, backgroundColor: bg, alignSelf: "flex-start" }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color }}>{children}</Text>
+    <View
+      style={{
+        minHeight: 24,
+        paddingVertical: 3,
+        paddingHorizontal: 9,
+        borderRadius: 999,
+        backgroundColor: bg,
+        alignSelf: "flex-start",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ fontSize: 11, fontWeight: "600", color, lineHeight: 14, textAlign: "center" }}>{children}</Text>
     </View>
   );
 }

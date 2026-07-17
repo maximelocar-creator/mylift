@@ -2,7 +2,7 @@
 // séance future, historique groupé par mois, détail + suppression.
 // Quand une séance est active, l'écran devient la séance live (comme v40).
 import { useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, LayoutAnimation } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,7 +52,17 @@ function SessionCard({
 
   return (
     <Pressable
-      onPress={() => setExpanded(!expanded)}
+      onPress={() => {
+        // Dépli animé : LayoutAnimation anime la hauteur de la carte ET le
+        // repositionnement de tout ce qui suit dans la liste
+        LayoutAnimation.configureNext({
+          duration: 280,
+          update: { type: "easeInEaseOut" },
+          create: { type: "easeInEaseOut", property: "opacity" },
+          delete: { type: "easeInEaseOut", property: "opacity" },
+        });
+        setExpanded(!expanded);
+      }}
       style={{
         backgroundColor: recommended ? C.bg1 : C.bg2,
         borderWidth: 1,
@@ -93,7 +103,7 @@ function SessionCard({
       </View>
 
       {!expanded && topExos.length > 0 && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4, marginBottom: 12 }}>
           {topExos.map((n: string, i: number) => (
             <Chip key={i} tone={i === 0 && recommended ? "primary" : undefined}>
               {n}
