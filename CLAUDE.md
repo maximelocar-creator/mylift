@@ -250,7 +250,7 @@ donnée. Étapes :
    les câbler et les valider en même temps que le premier build custom.)
 
 2. Création du profil : choix du username (unicité vérifiée), ville optionnelle,
-   bio optionnelle, avatar optionnel. Écran soigné, pas un simple formulaire
+   bio optionnelle, avatar optionnel ou photo de profil chargée depuis iphone. Écran soigné, pas un simple formulaire
    brut — c'est la première vraie impression de l'app.
 
 3. Création du premier programme, deux voies proposées clairement :
@@ -296,6 +296,18 @@ du flow d'un utilisateur normal.
 - Respect strict de la confidentialité des machines : un post peut montrer
   un exo et une performance, jamais le nom de la machine personnelle
   associée (exercise_models reste strictement privé même exposé via un post)
+- Export Instagram (story + post), façon Strava : quand l'utilisateur partage un
+  lift ou une séance, en plus de la publication dans le feed MyLift interne, un
+  bouton propose d'exporter vers Instagram — en story ou en post. Une image est
+  générée à la DA MyLift (fond dark, accent coral #FC4C02, PR en gold #FFC233) :
+  titre du PR ou résumé de séance, chiffres clés (durée/volume/PRs pour une
+  séance, ou l'accomplissement isolé pour un lift), rendu propre partageable.
+  Décision actée : c'est À LA FOIS un post natif dans le feed MyLift ET un export
+  Insta, pas un choix exclusif. Le poids absolu peut apparaître sur l'image (ex.
+  "DC 120×5") mais aucun classement entre utilisateurs sur cette valeur — seul
+  l'index relatif est comparable. Génération de l'image côté client, compressée
+  avant tout upload (cohérent avec la contrainte de coût : max ~1080px, une seule
+  image par post).
 
 ### Phase 4 — Interactions sociales
 - Likes sur posts (visibles uniquement si le post l'est selon RLS)
