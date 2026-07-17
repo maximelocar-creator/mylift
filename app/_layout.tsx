@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/theme";
@@ -47,15 +48,17 @@ export default function RootLayout() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg0 }}>
-      <StatusBar style="light" />
-      {session ? (
-        <DataProvider userId={session.user.id}>
-          <ActiveSessionProvider>{stack}</ActiveSessionProvider>
-        </DataProvider>
-      ) : (
-        stack
-      )}
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: C.bg0 }}>
+        <StatusBar style="light" />
+        {session ? (
+          <DataProvider userId={session.user.id}>
+            <ActiveSessionProvider>{stack}</ActiveSessionProvider>
+          </DataProvider>
+        ) : (
+          stack
+        )}
+      </View>
+    </GestureHandlerRootView>
   );
 }

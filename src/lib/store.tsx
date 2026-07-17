@@ -20,6 +20,7 @@ type DataState = {
   subGroups: Record<string, string[]>;
   sessionNotes: Record<string, string>;
   pendingSync: number;
+  syncing: boolean;
   reload: () => Promise<void>;
   saveLog: (log: Any) => Promise<void>;
   deleteLog: (logId: string) => Promise<void>;
@@ -51,6 +52,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
   const [subGroups, setSubGroups] = useState<Record<string, string[]>>({});
   const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
   const [pendingSync, setPendingSync] = useState(0);
+  const [syncing, setSyncing] = useState(false);
   const mounted = useRef(true);
 
   const loadFromLocal = useCallback(async () => {
@@ -82,9 +84,14 @@ export function DataProvider({ userId, children }: { userId: string; children: R
   }, [loadFromLocal]);
 
   const backgroundSync = useCallback(async () => {
-    const { pulled } = await syncNow();
-    if (pulled) await loadFromLocal();
-    else setPendingSync(await pendingSyncCount());
+    setSyncing(true);
+    try {
+      const { pulled } = await syncNow();
+      if (pulled) await loadFromLocal();
+      else setPendingSync(await pendingSyncCount());
+    } finally {
+      if (mounted.current) setSyncing(false);
+    }
   }, [loadFromLocal]);
 
   useEffect(() => {
@@ -108,9 +115,11 @@ export function DataProvider({ userId, children }: { userId: string; children: R
   const afterWrite = useCallback(async () => {
     await loadFromLocal();
     // Push en arrière-plan sans bloquer l'UI
+    setSyncing(true);
     flushSyncQueue()
       .then(({ pending }) => mounted.current && setPendingSync(pending))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => mounted.current && setSyncing(false));
   }, [loadFromLocal]);
 
   const value: DataState = {
@@ -125,6 +134,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
     subGroups,
     sessionNotes,
     pendingSync,
+    syncing,
     reload,
     saveLog: async (log) => {
       await repo.saveWorkoutLog(userId, log);

@@ -18,6 +18,37 @@ export const C = {
 
 export const R = { sm: 12, md: 16, lg: 22 };
 
+// Lignes, washes et états — repris du CSS v40 (:root)
+export const L = {
+  line: "rgba(255,255,255,.06)",
+  lineStrong: "rgba(255,255,255,.12)",
+  bgHover: "#1F1F33",
+  ink4: "#383B4D",
+  accentWash: "rgba(252,76,2,.12)",
+  accentGlow: "rgba(252,76,2,.28)",
+  goldWash: "rgba(255,194,51,.14)",
+  successWash: "rgba(47,210,125,.12)",
+  dangerWash: "rgba(255,59,72,.12)",
+};
+
+// Motion — équivalents natifs des tokens --t-*/--ease-* de la v40.
+// Springs physiques pour Reanimated (sheets, press states), durées pour le reste.
+export const MOTION = {
+  // Sheet iOS : spring ferme, sur-amorti juste ce qu'il faut (pas de rebond visible)
+  sheetSpring: { damping: 28, stiffness: 320, mass: 0.9 },
+  // Micro-interactions (press, toggles)
+  microSpring: { damping: 20, stiffness: 400, mass: 0.6 },
+  // Durées (ms) — mêmes valeurs que --t-micro/--t-local/--t-ctn/--t-view
+  micro: 140,
+  local: 220,
+  container: 340,
+  view: 280,
+  // Seuils du drag-to-dismiss des sheets
+  dismissDistance: 90, // px de drag vers le bas avant fermeture
+  dismissVelocity: 800, // px/s : un flick rapide ferme même avant le seuil
+  rubberBand: 0.55, // résistance quand on drag vers le haut (fin de course)
+};
+
 // Chiffres en tabular-nums : signature MyLift
 import type { TextStyle } from "react-native";
 export const mono: TextStyle = {

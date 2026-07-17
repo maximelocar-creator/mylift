@@ -1,17 +1,31 @@
 // Kit UI — composants de base mappés sur les tokens DA v40 (src/lib/theme.ts).
-// Sheets iOS-like (Modal bottom sheet), boutons, chips, labels.
-import { ReactNode, useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView, TextInput, ViewStyle, TextStyle } from "react-native";
-import { C, R, mono } from "../lib/theme";
+// Sheets iOS natives (spring physique + drag-to-dismiss rubber-band via
+// Reanimated/Gesture Handler), boutons, chips, labels, skeletons, statut sync.
+import { ReactNode, useEffect, useState } from "react";
+import { View, Text, Pressable, Modal, ScrollView, TextInput, ViewStyle, TextStyle, useWindowDimensions } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  runOnJS,
+  Easing,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { C, R, L, MOTION, mono } from "../lib/theme";
+import { haptic } from "../lib/haptics";
+import { useData } from "../lib/store";
 
-// Tokens complémentaires (repris du CSS v40)
-export const LINE = "rgba(255,255,255,.06)";
-export const LINE_STRONG = "rgba(255,255,255,.12)";
-export const ACCENT_WASH = "rgba(252,76,2,.12)";
-export const GOLD_WASH = "rgba(255,194,51,.14)";
-export const SUCCESS_WASH = "rgba(47,210,125,.12)";
-export const BG_HOVER = "#1F1F33";
-export const INK4 = "#383B4D";
+// Ré-exports de compat (les écrans importent ces noms depuis le kit)
+export const LINE = L.line;
+export const LINE_STRONG = L.lineStrong;
+export const ACCENT_WASH = L.accentWash;
+export const GOLD_WASH = L.goldWash;
+export const SUCCESS_WASH = L.successWash;
+export const BG_HOVER = L.bgHover;
+export const INK4 = L.ink4;
 
 /* ------------------------------------------------------------------ */
 export function Card({ children, style, feat }: { children: ReactNode; style?: ViewStyle; feat?: boolean }) {
@@ -21,7 +35,7 @@ export function Card({ children, style, feat }: { children: ReactNode; style?: V
         {
           backgroundColor: feat ? "#141020" : C.bg2,
           borderWidth: 1,
-          borderColor: feat ? "rgba(252,76,2,.22)" : LINE,
+          borderColor: feat ? L.accentGlow : L.line,
           borderRadius: R.md,
           padding: 16,
           overflow: "hidden",
@@ -51,7 +65,7 @@ export function SectionLabel({ children, right }: { children: ReactNode; right?:
 }
 
 export function Chip({ children, tone }: { children: ReactNode; tone?: "primary" | "gold" | "success" }) {
-  const bg = tone === "primary" ? ACCENT_WASH : tone === "gold" ? GOLD_WASH : tone === "success" ? SUCCESS_WASH : C.bg3;
+  const bg = tone === "primary" ? L.accentWash : tone === "gold" ? L.goldWash : tone === "success" ? L.successWash : C.bg3;
   const color = tone === "primary" ? C.accentHi : tone === "gold" ? C.gold : tone === "success" ? C.success : C.ink2;
   return (
     <View style={{ paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, backgroundColor: bg, alignSelf: "flex-start" }}>
@@ -60,6 +74,7 @@ export function Chip({ children, tone }: { children: ReactNode; tone?: "primary"
   );
 }
 
+/* Bouton avec press state animé (scale léger, signature press-btn v40) */
 export function Btn({
   children,
   onPress,
@@ -77,66 +92,132 @@ export function Btn({
   disabled?: boolean;
   style?: ViewStyle;
 }) {
+  const scale = useSharedValue(1);
+  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const bg = kind === "primary" ? C.accent : kind === "gold" ? C.gold : kind === "danger" ? C.danger : "rgba(255,255,255,.07)";
   const color = kind === "gold" ? "#2A1800" : kind === "ghost" ? C.ink1 : "#fff";
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        {
-          backgroundColor: bg,
-          borderRadius: sm ? 10 : R.sm,
-          paddingVertical: sm ? 8 : 12,
-          paddingHorizontal: sm ? 12 : 16,
-          minHeight: sm ? 36 : 44,
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-          gap: 6,
-          opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
-          alignSelf: full ? "stretch" : undefined,
-        },
-        style,
-      ]}
-    >
-      <Text style={{ color, fontSize: sm ? 12.5 : 14, fontWeight: "700", letterSpacing: -0.1 }}>{children}</Text>
-    </Pressable>
+    <Animated.View style={[aStyle, full ? { alignSelf: "stretch" } : undefined]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        onPressIn={() => {
+          scale.value = withSpring(0.975, MOTION.microSpring);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, MOTION.microSpring);
+        }}
+        style={[
+          {
+            backgroundColor: bg,
+            borderRadius: sm ? 10 : R.sm,
+            paddingVertical: sm ? 8 : 12,
+            paddingHorizontal: sm ? 12 : 16,
+            minHeight: sm ? 36 : 44,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+            gap: 6,
+            opacity: disabled ? 0.45 : 1,
+          },
+          style,
+        ]}
+      >
+        <Text style={{ color, fontSize: sm ? 12.5 : 14, fontWeight: "700", letterSpacing: -0.1 }}>{children}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Sheet — bottom sheet iOS-like sur Modal RN                          */
+/* Sheet — bottom sheet iOS : entrée/sortie en spring physique,        */
+/* drag-to-dismiss avec rubber-band vers le haut (port du CSS v40).    */
 /* ------------------------------------------------------------------ */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string | null; children: ReactNode }) {
+  const { height: winH } = useWindowDimensions();
+  const translateY = useSharedValue(winH);
+  const backdrop = useSharedValue(0);
+  const [visible, setVisible] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setVisible(true);
+      translateY.value = winH * 0.6;
+      translateY.value = withSpring(0, MOTION.sheetSpring);
+      backdrop.value = withTiming(1, { duration: MOTION.local });
+    } else if (visible) {
+      backdrop.value = withTiming(0, { duration: MOTION.local, easing: Easing.in(Easing.quad) });
+      translateY.value = withTiming(winH * 0.6, { duration: MOTION.local, easing: Easing.in(Easing.quad) }, (finished) => {
+        if (finished) runOnJS(setVisible)(false);
+      });
+    }
+  }, [open]);
+
+  const requestClose = () => onClose();
+
+  const pan = Gesture.Pan()
+    .onChange((e) => {
+      const dy = translateY.value + e.changeY;
+      // Vers le bas : suit le doigt. Vers le haut : rubber-band (résistance).
+      translateY.value = dy >= 0 ? dy : dy * MOTION.rubberBand;
+    })
+    .onEnd((e) => {
+      if (translateY.value > MOTION.dismissDistance || e.velocityY > MOTION.dismissVelocity) {
+        translateY.value = withTiming(winH * 0.6, { duration: MOTION.local, easing: Easing.in(Easing.quad) });
+        backdrop.value = withTiming(0, { duration: MOTION.local });
+        runOnJS(requestClose)();
+      } else {
+        translateY.value = withSpring(0, MOTION.sheetSpring);
+      }
+    });
+
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
+
+  if (!visible && !open) return null;
+
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,.55)" }} onPress={onClose} />
-      <View
-        style={{
-          backgroundColor: C.bg2,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          borderWidth: 1,
-          borderBottomWidth: 0,
-          borderColor: LINE,
-          maxHeight: "88%",
-          paddingBottom: 28,
-        }}
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      <Animated.View style={[{ flex: 1, backgroundColor: "rgba(0,0,0,.55)" }, backdropStyle]}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+      </Animated.View>
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: C.bg2,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            borderWidth: 1,
+            borderBottomWidth: 0,
+            borderColor: L.line,
+            maxHeight: "88%",
+            paddingBottom: 28,
+          },
+          sheetStyle,
+        ]}
       >
-        <View style={{ width: 36, height: 4, backgroundColor: "rgba(255,255,255,.18)", borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 6 }} />
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8 }} keyboardShouldPersistTaps="handled">
-          {title != null && (
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <Text style={{ fontSize: 17, fontWeight: "700", letterSpacing: -0.3, color: C.ink0, flex: 1 }}>{title}</Text>
-              <Pressable onPress={onClose} hitSlop={10} style={{ padding: 6 }}>
-                <Text style={{ color: C.ink3, fontSize: 16 }}>✕</Text>
-              </Pressable>
-            </View>
-          )}
+        {/* Zone de drag : grip + titre */}
+        <GestureDetector gesture={pan}>
+          <View>
+            <View style={{ width: 36, height: 4, backgroundColor: L.lineStrong, borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 6 }} />
+            {title != null && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 8 }}>
+                <Text style={{ fontSize: 17, fontWeight: "700", letterSpacing: -0.3, color: C.ink0, flex: 1 }}>{title}</Text>
+                <Pressable onPress={onClose} hitSlop={10} style={{ padding: 6 }}>
+                  <Text style={{ color: C.ink3, fontSize: 16 }}>✕</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </GestureDetector>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: title != null ? 4 : 8 }} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -165,7 +246,14 @@ export function ConfirmSheet({
         <Btn kind="ghost" onPress={onClose} style={{ flex: 1 }}>
           Annuler
         </Btn>
-        <Btn kind={danger ? "danger" : "primary"} onPress={onConfirm} style={{ flex: 1 }}>
+        <Btn
+          kind={danger ? "danger" : "primary"}
+          onPress={() => {
+            haptic(danger ? "warning" : "success");
+            onConfirm();
+          }}
+          style={{ flex: 1 }}
+        >
           {confirmLabel}
         </Btn>
       </View>
@@ -174,21 +262,22 @@ export function ConfirmSheet({
 }
 
 /* ------------------------------------------------------------------ */
-/* Segment — switch à onglets (Muscles/Exos, 7j/28j, etc.)             */
-/* ------------------------------------------------------------------ */
 export function Segment<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <View style={{ flexDirection: "row", gap: 2, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 12, padding: 3, marginBottom: 16 }}>
+    <View style={{ flexDirection: "row", gap: 2, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 12, padding: 3, marginBottom: 16 }}>
       {options.map((o) => (
         <Pressable
           key={o.value}
-          onPress={() => onChange(o.value)}
+          onPress={() => {
+            if (o.value !== value) haptic("light");
+            onChange(o.value);
+          }}
           style={{
             flex: 1,
             paddingVertical: 8,
             paddingHorizontal: 10,
             borderRadius: 10,
-            backgroundColor: o.value === value ? BG_HOVER : "transparent",
+            backgroundColor: o.value === value ? L.bgHover : "transparent",
             alignItems: "center",
           }}
         >
@@ -199,8 +288,6 @@ export function Segment<T extends string>({ options, value, onChange }: { option
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* PickerSheet — liste d'options avec recherche (port du v40)          */
 /* ------------------------------------------------------------------ */
 export function PickerSheet({
   open,
@@ -221,7 +308,14 @@ export function PickerSheet({
   const norm = (t: string) => t.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const filtered = q ? options.filter((o) => norm(o.label).includes(norm(q))) : options;
   return (
-    <Sheet open={open} onClose={() => { setQ(""); onClose(); }} title={title}>
+    <Sheet
+      open={open}
+      onClose={() => {
+        setQ("");
+        onClose();
+      }}
+      title={title}
+    >
       {search && (
         <TextInput
           value={q}
@@ -231,7 +325,7 @@ export function PickerSheet({
           style={{
             backgroundColor: "rgba(255,255,255,.04)",
             borderWidth: 1,
-            borderColor: LINE,
+            borderColor: L.line,
             borderRadius: 12,
             color: C.ink0,
             paddingHorizontal: 14,
@@ -245,11 +339,15 @@ export function PickerSheet({
         {filtered.map((o) => (
           <Pressable
             key={o.value}
-            onPress={() => { setQ(""); onPick(o.value); }}
+            onPress={() => {
+              haptic("light");
+              setQ("");
+              onPick(o.value);
+            }}
             style={({ pressed }) => ({
               padding: 12,
               borderRadius: 10,
-              backgroundColor: pressed ? BG_HOVER : "rgba(255,255,255,.03)",
+              backgroundColor: pressed ? L.bgHover : "rgba(255,255,255,.03)",
               borderWidth: 1,
               borderColor: "rgba(255,255,255,.06)",
             })}
@@ -261,6 +359,59 @@ export function PickerSheet({
         {filtered.length === 0 && <Text style={{ color: C.ink3, textAlign: "center", padding: 20 }}>Aucun résultat</Text>}
       </View>
     </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Skeleton — shimmer doux pendant le chargement (jamais d'écran nu)   */
+/* ------------------------------------------------------------------ */
+export function Skeleton({ width, height = 16, radius = 8, style }: { width?: number | `${number}%`; height?: number; radius?: number; style?: ViewStyle }) {
+  const opacity = useSharedValue(0.5);
+  useEffect(() => {
+    opacity.value = withRepeat(withSequence(withTiming(0.9, { duration: 700 }), withTiming(0.5, { duration: 700 })), -1);
+  }, []);
+  const aStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[{ width: width ?? "100%", height, borderRadius: radius, backgroundColor: C.bg3 }, aStyle, style]} />;
+}
+
+/** Squelette générique d'écran (header + cartes) pendant le premier chargement. */
+export function ScreenSkeleton({ paddingTop = 60 }: { paddingTop?: number }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg0, padding: 16, paddingTop }}>
+      <Skeleton width={160} height={30} radius={8} style={{ marginBottom: 20 }} />
+      <Skeleton height={140} radius={R.md} style={{ marginBottom: 10 }} />
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+        <Skeleton height={110} radius={R.md} style={{ flex: 1 }} />
+        <Skeleton height={110} radius={R.md} style={{ flex: 1 }} />
+      </View>
+      <Skeleton height={90} radius={R.md} style={{ marginBottom: 10 }} />
+      <Skeleton height={90} radius={R.md} />
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* SyncDot — statut de sync discret : point vert (ok), orange pulsant   */
+/* (en cours), doré + compteur (écritures en attente / hors ligne).     */
+/* ------------------------------------------------------------------ */
+export function SyncDot() {
+  const { syncing, pendingSync } = useData();
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (syncing) {
+      pulse.value = withRepeat(withSequence(withTiming(0.35, { duration: 500 }), withTiming(1, { duration: 500 })), -1);
+    } else {
+      pulse.value = withTiming(1, { duration: MOTION.local });
+    }
+  }, [syncing]);
+  const aStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
+  const color = syncing ? C.accent : pendingSync > 0 ? C.gold : C.success;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <Animated.View style={[{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, opacity: syncing ? 1 : 0.7 }, aStyle]} />
+      {pendingSync > 0 && !syncing && <Text style={[mono, { fontSize: 9, fontWeight: "700", color: C.gold }]}>{pendingSync}</Text>}
+    </View>
   );
 }
 
