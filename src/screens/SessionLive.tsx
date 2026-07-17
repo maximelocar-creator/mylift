@@ -578,7 +578,7 @@ export default function SessionLive({
     }
   };
 
-  const finishSession = () => {
+  const finishSession = (force = false) => {
     const pending: Any[] = [];
     session.exercises.forEach((ex: Any) => {
       const sets = ex.sets || [];
@@ -587,9 +587,12 @@ export default function SessionLive({
       if (unconfirmed > 0) pending.push({ exName: ex.exName || "?", pendingCount: unconfirmed });
     });
     const hasAnyConfirmed = session.exercises.some((ex: Any) => (ex.sets || []).some((s: Any) => s._confirmed && isValidSet(s)));
-    if (pending.length > 0 || !hasAnyConfirmed) {
+    // Sans AUCUNE série validée : rien à logger, on bloque toujours.
+    // Avec des séries en attente : confirmation "continuer / terminer quand même"
+    // (les séries non validées sont ignorées, seules les validées sont loggées).
+    if (!hasAnyConfirmed || (pending.length > 0 && !force)) {
       haptic("warning");
-      setFinishBlocked({ pending, emptyExos: hasAnyConfirmed ? [] : ["Aucun exercice avec série validée"] });
+      setFinishBlocked({ pending, canForce: hasAnyConfirmed });
       return;
     }
 
@@ -747,7 +750,7 @@ export default function SessionLive({
           >
             <Ionicons name="close" size={15} color={C.danger} />
           </Pressable>
-          <Btn sm onPress={finishSession}>✓ Fin</Btn>
+          <Btn sm onPress={() => finishSession()}>✓ Fin</Btn>
         </View>
 
         {/* Bandeau note de séance */}
@@ -1213,18 +1216,18 @@ export default function SessionLive({
         danger={false}
       />
 
-      {/* Séance incomplète */}
+      {/* Séance incomplète — confirmation (port v40 + option "terminer quand même") */}
       <Sheet open={!!finishBlocked} onClose={() => setFinishBlocked(null)} title="Séance incomplète">
         {finishBlocked && (
           <View>
             <Text style={{ fontSize: 14, color: C.ink1, lineHeight: 20, marginBottom: 14 }}>
-              {finishBlocked.pending.length > 0
-                ? "Pour chaque série en cours, tu dois soit la valider avec ✓, soit la supprimer avec la corbeille. Un exo dont toutes les séries sont supprimées sera ignoré."
+              {finishBlocked.canForce
+                ? "Certaines séries ne sont pas validées. Tu peux continuer la séance, ou terminer quand même : seules les séries validées ✓ seront enregistrées."
                 : "Aucune série validée. Ajoute au moins une série sur un exercice, ou annule la séance si tu ne veux rien enregistrer."}
             </Text>
             {finishBlocked.pending.length > 0 && (
               <View style={{ marginBottom: 14 }}>
-                <Label style={{ marginBottom: 8 }}>Séries à valider ou supprimer</Label>
+                <Label style={{ marginBottom: 8 }}>Séries non validées</Label>
                 <View style={{ gap: 4 }}>
                   {finishBlocked.pending.map((p: Any, i: number) => (
                     <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", padding: 10, backgroundColor: C.bg3, borderRadius: 8 }}>
@@ -1239,9 +1242,26 @@ export default function SessionLive({
                 </View>
               </View>
             )}
-            <Btn full onPress={() => setFinishBlocked(null)}>
-              Compris
-            </Btn>
+            {finishBlocked.canForce ? (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Btn kind="ghost" onPress={() => setFinishBlocked(null)} style={{ flex: 1 }}>
+                  Continuer
+                </Btn>
+                <Btn
+                  onPress={() => {
+                    setFinishBlocked(null);
+                    finishSession(true);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Terminer quand même
+                </Btn>
+              </View>
+            ) : (
+              <Btn full onPress={() => setFinishBlocked(null)}>
+                Compris
+              </Btn>
+            )}
           </View>
         )}
       </Sheet>

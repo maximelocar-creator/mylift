@@ -13,7 +13,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { C, R, L, MOTION, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
@@ -105,8 +105,18 @@ export function Btn({
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const bg = kind === "primary" ? C.accent : kind === "gold" ? C.gold : kind === "danger" ? C.danger : "rgba(255,255,255,.07)";
   const color = kind === "gold" ? "#2A1800" : kind === "ghost" ? C.ink1 : "#fff";
+  // Styles de LAYOUT → wrapper animé (sinon flex:1 sur le Pressable interne ne
+  // s'applique pas et les boutons des sheets s'alignent à gauche)
+  const st = (style || {}) as Record<string, any>;
+  const layoutKeys = ["flex", "alignSelf", "minWidth", "maxWidth", "width", "margin", "marginTop", "marginBottom", "marginLeft", "marginRight", "marginHorizontal", "marginVertical"];
+  const wrapperStyle: Record<string, any> = {};
+  const innerStyle: Record<string, any> = {};
+  Object.entries(st).forEach(([k, v]) => {
+    if (layoutKeys.includes(k)) wrapperStyle[k] = v;
+    else innerStyle[k] = v;
+  });
   return (
-    <Animated.View style={[aStyle, full ? { alignSelf: "stretch" } : undefined]}>
+    <Animated.View style={[aStyle, full ? { alignSelf: "stretch" } : undefined, wrapperStyle]}>
       <Pressable
         onPress={onPress}
         disabled={disabled}
@@ -129,7 +139,7 @@ export function Btn({
             gap: 6,
             opacity: disabled ? 0.45 : 1,
           },
-          style,
+          innerStyle,
         ]}
       >
         <Text style={{ color, fontSize: sm ? 12.5 : 14, fontWeight: "700", letterSpacing: -0.1 }}>{children}</Text>
@@ -187,6 +197,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
       <Animated.View style={[{ flex: 1, backgroundColor: "rgba(0,0,0,.55)" }, backdropStyle]}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
@@ -229,6 +240,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         </ScrollView>
       </Animated.View>
       </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

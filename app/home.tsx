@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
+  View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -94,8 +94,9 @@ export default function Home() {
   if (!userId) return <View style={{ flex: 1, backgroundColor: C.bg0 }} />;
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg0 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: C.bg0 }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: 20, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }}
     >
       <Text style={{ color: C.ink0, fontSize: 28, fontWeight: "800", marginBottom: 24 }}>
@@ -211,5 +212,6 @@ export default function Home() {
         </>
       )}
     </ScrollView>
+</KeyboardAvoidingView>
   );
 }
