@@ -54,7 +54,7 @@ export function useData(): DataState {
   return v;
 }
 
-export function DataProvider({ userId, children }: { userId: string; children: ReactNode }) {
+export function DataProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<Any | null>(null);
   const [journalLogs, setJournalLogs] = useState<Any[]>([]);
@@ -109,6 +109,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
 
   useEffect(() => {
     mounted.current = true;
+    if (!userId) return; // pas de session : provider inerte (écran login)
     (async () => {
       // 1. Affiche immédiatement les données locales (offline-first)
       await loadFromLocal();
@@ -150,7 +151,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
     syncing,
     reload,
     saveLog: async (log) => {
-      await repo.saveWorkoutLog(userId, log);
+      await repo.saveWorkoutLog(userId!, log);
       await afterWrite();
     },
     deleteLog: async (logId) => {
@@ -158,7 +159,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       await afterWrite();
     },
     addWeight: async (entry) => {
-      await repo.addWeight(userId, entry);
+      await repo.addWeight(userId!, entry);
       await afterWrite();
     },
     deleteWeight: async (id) => {
@@ -166,21 +167,21 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       await afterWrite();
     },
     setCurrentProgram: async (programId) => {
-      await repo.setCurrentProgram(userId, programId);
+      await repo.setCurrentProgram(userId!, programId);
       await afterWrite();
     },
     addExercise: async (exo) => {
-      const created = await repo.addExercise(userId, exo);
+      const created = await repo.addExercise(userId!, exo);
       await afterWrite();
       return created;
     },
     addExerciseModel: async (exerciseId, model) => {
-      const created = await repo.addExerciseModel(userId, exerciseId, model);
+      const created = await repo.addExerciseModel(userId!, exerciseId, model);
       await afterWrite();
       return created;
     },
     setSessionNote: async (sessionKey, note) => {
-      await repo.setSessionNote(userId, sessionKey, note);
+      await repo.setSessionNote(userId!, sessionKey, note);
       await afterWrite();
     },
     updateProgramTarget: async (pexId, opts) => {
@@ -193,11 +194,11 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       if (!current) return;
       const copy = JSON.parse(JSON.stringify(current));
       mutator(copy);
-      await repo.replaceProgram(userId, copy);
+      await repo.replaceProgram(userId!, copy);
       await afterWrite();
     },
     createProgram: async (name) => {
-      const created = await repo.createProgram(userId, name);
+      const created = await repo.createProgram(userId!, name);
       await afterWrite();
       return created;
     },
@@ -213,7 +214,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
           ex.id = repo.uid();
         });
       });
-      await repo.replaceProgram(userId, copy);
+      await repo.replaceProgram(userId!, copy);
       await afterWrite();
       return copy;
     },
@@ -222,27 +223,27 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       await afterWrite();
     },
     addMuscleGroup: async (name) => {
-      await repo.addMuscleGroup(userId, name);
+      await repo.addMuscleGroup(userId!, name);
       await afterWrite();
     },
     renameMuscleGroup: async (oldName, newName) => {
-      await repo.renameMuscleGroup(userId, oldName, newName);
+      await repo.renameMuscleGroup(userId!, oldName, newName);
       await afterWrite();
     },
     deleteMuscleGroup: async (name) => {
-      await repo.deleteMuscleGroup(userId, name);
+      await repo.deleteMuscleGroup(userId!, name);
       await afterWrite();
     },
     addSubGroup: async (group, name) => {
-      await repo.addSubGroup(userId, group, name);
+      await repo.addSubGroup(userId!, group, name);
       await afterWrite();
     },
     renameSubGroup: async (group, oldName, newName) => {
-      await repo.renameSubGroup(userId, group, oldName, newName);
+      await repo.renameSubGroup(userId!, group, oldName, newName);
       await afterWrite();
     },
     deleteSubGroup: async (group, name) => {
-      await repo.deleteSubGroup(userId, group, name);
+      await repo.deleteSubGroup(userId!, group, name);
       await afterWrite();
     },
     seedCountInGroup: (group) => repo.seedCountInGroup(group),

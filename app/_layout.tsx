@@ -66,13 +66,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: C.bg0 }}>
         <StatusBar style="light" />
-        {session ? (
-          <DataProvider userId={session.user.id}>
+        {/* Providers TOUJOURS montés (userId nullable) : à la déconnexion, les
+            écrans sous tabs se re-rendent une frame avant la redirection des
+            routes protégées — un provider conditionnel ferait crasher les hooks. */}
+        <DataProvider userId={session?.user.id ?? null}>
+          <SocialProvider userId={session?.user.id ?? null}>
             <ActiveSessionProvider>{stack}</ActiveSessionProvider>
-          </DataProvider>
-        ) : (
-          stack
-        )}
+          </SocialProvider>
+        </DataProvider>
       </View>
     </GestureHandlerRootView>
   );

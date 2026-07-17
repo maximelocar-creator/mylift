@@ -20,12 +20,13 @@ export function useSocial(): SocialState {
   return v;
 }
 
-export function SocialProvider({ userId, children }: { userId: string; children: ReactNode }) {
+export function SocialProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [incoming, setIncoming] = useState<Any[]>([]);
   const [outgoing, setOutgoing] = useState<Any[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
 
   const refreshSocial = useCallback(async () => {
+    if (!userId) return;
     try {
       const [inc, out, cnt] = await Promise.all([
         social.fetchIncomingPending(userId),
