@@ -6,6 +6,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/theme";
 import { DataProvider } from "@/lib/store";
+import { ActiveSessionProvider } from "@/lib/activeSession";
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -26,7 +27,7 @@ export default function RootLayout() {
     if (!ready) return;
     const onLogin = segments[0] === "login";
     if (!session && !onLogin) router.replace("/login");
-    if (session && onLogin) router.replace("/home");
+    if (session && onLogin) router.replace("/");
   }, [ready, session, segments]);
 
   const stack = (
@@ -41,7 +42,13 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
       <StatusBar style="light" />
-      {session ? <DataProvider userId={session.user.id}>{stack}</DataProvider> : stack}
+      {session ? (
+        <DataProvider userId={session.user.id}>
+          <ActiveSessionProvider>{stack}</ActiveSessionProvider>
+        </DataProvider>
+      ) : (
+        stack
+      )}
     </View>
   );
 }

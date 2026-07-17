@@ -18,6 +18,7 @@ type DataState = {
   weights: Any[];
   muscleGroups: string[];
   subGroups: Record<string, string[]>;
+  sessionNotes: Record<string, string>;
   pendingSync: number;
   reload: () => Promise<void>;
   saveLog: (log: Any) => Promise<void>;
@@ -27,6 +28,8 @@ type DataState = {
   setCurrentProgram: (programId: string | null) => Promise<void>;
   addExercise: (exo: { name: string; muscleGroup: string; subGroup?: string | null; compound?: boolean }) => Promise<Any>;
   addExerciseModel: (exerciseId: string, model: { name: string; setting?: string | null }) => Promise<Any>;
+  setSessionNote: (sessionKey: string, note: string | null) => Promise<void>;
+  updateProgramTarget: (pexId: string, opts: { targetModelId?: string | null; exId?: string | null; newWeight: number }) => Promise<void>;
 };
 
 const Ctx = createContext<DataState | null>(null);
@@ -46,11 +49,12 @@ export function DataProvider({ userId, children }: { userId: string; children: R
   const [weights, setWeights] = useState<Any[]>([]);
   const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
   const [subGroups, setSubGroups] = useState<Record<string, string[]>>({});
+  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
   const [pendingSync, setPendingSync] = useState(0);
   const mounted = useRef(true);
 
   const loadFromLocal = useCallback(async () => {
-    const [p, logs, lib, progs, w, mg, sg, pend] = await Promise.all([
+    const [p, logs, lib, progs, w, mg, sg, notes, pend] = await Promise.all([
       repo.getProfile(),
       repo.getJournalLogs(),
       repo.getExerciseLib(),
@@ -58,6 +62,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       repo.getWeights(),
       repo.getMuscleGroups(),
       repo.getSubGroups(),
+      repo.getSessionNotes(),
       pendingSyncCount(),
     ]);
     if (!mounted.current) return;
@@ -68,6 +73,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
     setWeights(w);
     setMuscleGroups(mg);
     setSubGroups(sg);
+    setSessionNotes(notes);
     setPendingSync(pend);
   }, []);
 
@@ -117,6 +123,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
     weights,
     muscleGroups,
     subGroups,
+    sessionNotes,
     pendingSync,
     reload,
     saveLog: async (log) => {
@@ -148,6 +155,14 @@ export function DataProvider({ userId, children }: { userId: string; children: R
       const created = await repo.addExerciseModel(userId, exerciseId, model);
       await afterWrite();
       return created;
+    },
+    setSessionNote: async (sessionKey, note) => {
+      await repo.setSessionNote(userId, sessionKey, note);
+      await afterWrite();
+    },
+    updateProgramTarget: async (pexId, opts) => {
+      await repo.updateProgramExerciseTarget(pexId, opts);
+      await afterWrite();
     },
   };
 

@@ -1,0 +1,114 @@
+// Barre d'onglets v40 : Dashboard · Journal · Progrès · Pesée · Réglages
+// + bandeau persistant "Séance en cours" (visible partout sauf Journal).
+import { Tabs, useRouter, usePathname } from "expo-router";
+import { View, Text, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { C } from "@/lib/theme";
+import { LINE } from "@/ui/kit";
+import { useActiveSession } from "@/lib/activeSession";
+import { pad2 } from "@/lib/format";
+
+function SessionElapsed({ startedAt }: { startedAt: number }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const int = setInterval(() => force((x) => x + 1), 1000);
+    return () => clearInterval(int);
+  }, []);
+  const sec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const m = Math.floor(sec / 60);
+  const h = Math.floor(m / 60);
+  const label = h > 0 ? `${h}h${pad2(m % 60)}` : `${m}m${pad2(sec % 60)}`;
+  return <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff", opacity: 0.9 }}>{label}</Text>;
+}
+
+export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { activeSession } = useActiveSession();
+  const showBanner = !!activeSession && !pathname.startsWith("/journal");
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg0 }}>
+      {showBanner && (
+        <Pressable
+          onPress={() => router.navigate("/journal")}
+          style={{
+            position: "absolute",
+            top: insets.top,
+            left: 12,
+            right: 12,
+            zIndex: 50,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            backgroundColor: C.accent,
+            borderBottomLeftRadius: 14,
+            borderBottomRightRadius: 14,
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
+            <View style={{ minWidth: 0, flex: 1 }}>
+              <View style={{ flexDirection: "row", gap: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1, color: "#fff", opacity: 0.9 }}>
+                  Séance en cours ·
+                </Text>
+                <SessionElapsed startedAt={activeSession!.startedAt} />
+              </View>
+              <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: "#fff", marginTop: 1 }}>
+                {activeSession!.sessionName || "Séance"}
+              </Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>Reprendre →</Text>
+        </Pressable>
+      )}
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: C.bg0 },
+          tabBarStyle: {
+            backgroundColor: "rgba(10,10,18,.96)",
+            borderTopColor: LINE,
+            borderTopWidth: 1,
+            height: 64 + insets.bottom,
+            paddingBottom: insets.bottom,
+            paddingTop: 6,
+          },
+          tabBarActiveTintColor: C.accent,
+          tabBarInactiveTintColor: C.ink3,
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{ title: "Dashboard", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} /> }}
+        />
+        <Tabs.Screen
+          name="journal"
+          options={{ title: "Journal", tabBarIcon: ({ color, size }) => <Ionicons name="barbell-outline" size={size} color={color} /> }}
+        />
+        <Tabs.Screen
+          name="progression"
+          options={{ title: "Progrès", tabBarIcon: ({ color, size }) => <Ionicons name="trending-up-outline" size={size} color={color} /> }}
+        />
+        <Tabs.Screen
+          name="pesee"
+          options={{ title: "Pesée", tabBarIcon: ({ color, size }) => <Ionicons name="scale-outline" size={size} color={color} /> }}
+        />
+        <Tabs.Screen
+          name="params"
+          options={{ title: "Réglages", tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }}
+        />
+      </Tabs>
+    </View>
+  );
+}

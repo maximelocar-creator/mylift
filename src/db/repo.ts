@@ -124,6 +124,41 @@ export async function getPrograms(): Promise<Any[]> {
   }));
 }
 
+/**
+ * Popup "dépassement de cible" (séance live) : persiste la nouvelle cible dans
+ * le programme. Si un modèle est actif → program_model_targets (le bon endroit,
+ * cf. v40) ; sinon → choices[].weight (ancien système).
+ */
+export async function updateProgramExerciseTarget(
+  pexId: string,
+  opts: { targetModelId?: string | null; exId?: string | null; newWeight: number }
+): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    if (opts.targetModelId) {
+      await tx.runAsync(
+        "INSERT OR REPLACE INTO program_model_targets (program_exercise_id, model_id, weight) VALUES (?,?,?)",
+        [pexId, opts.targetModelId, opts.newWeight]
+      );
+      await enqueue(
+        tx as any,
+        "program_model_targets",
+        "upsert",
+        { program_exercise_id: pexId, model_id: opts.targetModelId },
+        { program_exercise_id: pexId, model_id: opts.targetModelId, weight: opts.newWeight }
+      );
+    } else {
+      const row = await tx.getFirstAsync<Any>("SELECT choices FROM program_exercises WHERE id = ?", [pexId]);
+      if (!row) return;
+      const choices = (JSON.parse(row.choices || "[]") as Any[]).map((c) =>
+        c.exId === opts.exId ? { ...c, weight: opts.newWeight } : c
+      );
+      await tx.runAsync("UPDATE program_exercises SET choices = ? WHERE id = ?", [JSON.stringify(choices), pexId]);
+      await enqueue(tx as any, "program_exercises", "update", { id: pexId }, { choices });
+    }
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Journal (forme v40 : journalLogs avec exercises/sets/prs imbriqués)  */
 /* ------------------------------------------------------------------ */
@@ -329,6 +364,17 @@ export async function getSubGroups(): Promise<Record<string, string[]>> {
   rows.forEach((r) => {
     if (!out[r.muscle_group]) out[r.muscle_group] = [];
     out[r.muscle_group].push(r.name);
+  });
+  return out;
+}
+
+/** Toutes les notes, clé "<programId>::<sessionId>" (même convention que v40). */
+export async function getSessionNotes(): Promise<Record<string, string>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Any>("SELECT session_id, note FROM session_notes");
+  const out: Record<string, string> = {};
+  rows.forEach((r) => {
+    out[r.session_id] = r.note;
   });
   return out;
 }
