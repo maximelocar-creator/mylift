@@ -9,12 +9,17 @@ il pilote via Claude (chat) + Claude Code (ce terminal). Ne jamais lui demander
 d'écrire du code ou de choisir entre des options techniques équivalentes :
 trancher soi-même et expliquer la conséquence en langage simple si besoin.
 
-## État actuel (Phase 0)
+## État actuel (Phase 1 avancée)
 
-- Auth email/mdp fonctionnelle (`app/login.tsx`)
-- Import du backup v40 vers Supabase avec rapport de parité affiché à l'écran
-  (`src/db/importBackup.ts`, `app/home.tsx`)
-- Schéma Supabase complet + RLS déjà appliqués en prod (`supabase/migrations/`)
+- Phase 0 terminée : auth email/mdp, import backup v40 avec rapport de parité,
+  schéma Supabase + RLS en prod
+- Phase 1 quasi complète : 5 onglets (Dashboard/Journal/Progrès/Pesée/Réglages),
+  séance live complète, SQLite offline-first + queue de sync, édition de
+  programme, générateur auto (port testé en parité), cibles de volume, focus
+  muscles, CRUD groupes musculaires et machines, courbes premium (tracé
+  progressif + morph + scrubber UI-thread), haptics, sheets spring, skeletons
+- Couche logique : `src/core/mylift.ts`, 229 checks de parité différentielle
+  contre le vrai app.jsx (`npm run test:core`) — à maintenir verts
 - SDK Expo : **54** (aligné sur la version d'Expo Go installée sur l'iPhone de
   Maxime — ne jamais downgrade sans vérifier avec lui d'abord)
 
@@ -40,6 +45,10 @@ Pièges appris sur ce projet (ne pas re-payer) :
 - Vérifier un bundle iOS sans téléphone :
   `curl "http://localhost:8081/node_modules/expo-router/entry.bundle?platform=ios&dev=true"`
   (HTTP 200 = compile, 500 = l'erreur est dans le corps de la réponse).
+- Modals iOS : présenter une Modal pendant qu'une autre joue son animation de
+  fermeture échoue SILENCIEUSEMENT. Pour enchaîner deux sheets, toujours passer
+  par `afterSheetClose()` (src/ui/kit.tsx). Deux sheets empilées (l'une par-
+  dessus l'autre) fonctionnent ; c'est le swap rapide qui casse.
 
 ## Invariants métier — NE JAMAIS DÉVIER
 
@@ -213,7 +222,11 @@ standard. Le vrai onboarding grand public (créer un compte → créer son
 premier programme depuis zéro → premier lancement guidé) est un chantier de
 la Phase 2, pas de maintenant.
 
-**UI/UX — doit se sentir natif Apple, pas porté du web** :
+**UI/UX — doit se sentir natif Apple, pas porté du web** — passe Revolut
+faite : courbes en tracé progressif au montage + morph point-à-point au
+changement de période + scrubber/tooltip sur le thread UI (react-native-svg +
+Reanimated, pas de Skia pour ne pas risquer un mismatch natif Expo Go),
+dashboard en stagger + count-up. Exigences d'origine :
 - Transitions d'écran natives (push/pop iOS standard via
   expo-router/react-native-screens), jamais un fade générique géré à la main
 - Bottom sheets en spring physique (react-native-reanimated +
