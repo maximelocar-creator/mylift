@@ -9,6 +9,7 @@ import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpr
 import { supabase } from "@/lib/supabase";
 import { C, R, L, MOTION } from "@/lib/theme";
 import { haptic } from "@/lib/haptics";
+import { appleAvailable, signInWithApple, signInWithGoogle } from "@/lib/oauth";
 
 // Lu par le Dashboard au premier rendu : ouvre l'écran d'import une fois.
 export const OPEN_IMPORT_FLAG = "mylift_open_import_once";
@@ -21,6 +22,22 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [importArmed, setImportArmed] = useState(false);
+  const [appleOk, setAppleOk] = useState(false);
+
+  useEffect(() => {
+    appleAvailable().then(setAppleOk);
+  }, []);
+
+  const socialSignIn = async (fn: () => Promise<{ error: string | null }>) => {
+    setBusy(true);
+    setMsg(null);
+    const { error } = await fn();
+    setBusy(false);
+    if (error) {
+      haptic("error");
+      setMsg(error);
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(OPEN_IMPORT_FLAG).then((v) => setImportArmed(v === "1"));
@@ -134,6 +151,33 @@ export default function Login() {
             <Text style={{ color: C.ink0, fontSize: 17, fontWeight: "700" }}>{mode === "login" ? "Se connecter" : "Créer le compte"}</Text>
           )}
         </Pressable>
+
+        {/* Providers sociaux — validation réelle au premier build EAS (cf. CLAUDE.md) */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 20 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: L.line }} />
+          <Text style={{ color: C.ink3, fontSize: 11 }}>ou</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: L.line }} />
+        </View>
+        <View style={{ gap: 8 }}>
+          {appleOk && (
+            <Pressable
+              onPress={() => socialSignIn(signInWithApple)}
+              disabled={busy}
+              style={{ backgroundColor: "#fff", borderRadius: R.md, height: 48, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 }}
+            >
+              <Text style={{ fontSize: 16 }}></Text>
+              <Text style={{ color: "#000", fontSize: 15, fontWeight: "700" }}>Continuer avec Apple</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => socialSignIn(signInWithGoogle)}
+            disabled={busy}
+            style={{ backgroundColor: "rgba(255,255,255,.07)", borderWidth: 1, borderColor: L.line, borderRadius: R.md, height: 48, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 }}
+          >
+            <Text style={{ fontSize: 14 }}>G</Text>
+            <Text style={{ color: C.ink0, fontSize: 15, fontWeight: "700" }}>Continuer avec Google</Text>
+          </Pressable>
+        </View>
 
         <Pressable
           onPress={() => {
