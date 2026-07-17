@@ -430,3 +430,57 @@ export function SyncDot() {
 export function Num({ children, style }: { children: ReactNode; style?: TextStyle }) {
   return <Text style={[mono, style]}>{children}</Text>;
 }
+
+/* ------------------------------------------------------------------ */
+/* CountUp — valeur qui compte vers sa cible (ease-out, sans rebond)   */
+/* ------------------------------------------------------------------ */
+export function CountUp({
+  value,
+  decimals = 0,
+  duration = 620,
+  style,
+  suffix,
+  format,
+}: {
+  value: number;
+  decimals?: number;
+  duration?: number;
+  style?: TextStyle | TextStyle[];
+  suffix?: string;
+  format?: (v: number) => string;
+}) {
+  const [display, setDisplay] = useState(0);
+  const fromRef = { current: 0 } as { current: number };
+  const prevRef = usePrevValue(value);
+
+  useEffect(() => {
+    const from = prevRef ?? 0;
+    const start = Date.now();
+    const tick = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      setDisplay(from + (value - from) * eased);
+      if (t >= 1) clearInterval(tick);
+    }, 1000 / 30);
+    return () => clearInterval(tick);
+  }, [value]);
+
+  const text = format ? format(display) : display.toFixed(decimals);
+  return (
+    <Text style={[mono as TextStyle, ...(Array.isArray(style) ? style : style ? [style] : [])]}>
+      {text}
+      {suffix ?? ""}
+    </Text>
+  );
+}
+
+// Mémorise la valeur précédente entre renders (pour compter depuis l'ancienne)
+const prevStore = new WeakMap<object, number>();
+function usePrevValue(value: number): number | undefined {
+  const keyRef = useState(() => ({}))[0];
+  const prev = prevStore.get(keyRef);
+  useEffect(() => {
+    prevStore.set(keyRef, value);
+  }, [value]);
+  return prev;
+}

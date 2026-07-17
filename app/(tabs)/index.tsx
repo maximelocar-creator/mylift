@@ -12,7 +12,9 @@ import { useActiveSession } from "@/lib/activeSession";
 import { iso, type Any } from "@/core/mylift";
 import { usePeriodStats, useWeekStats } from "@/lib/stats";
 import { formatNum, formatDur, formatRelative, formatDate, DOW_FR_S } from "@/lib/format";
-import { Sheet, Card, Chip, Label, SyncDot, ScreenSkeleton, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, Card, Chip, Label, SyncDot, ScreenSkeleton, CountUp, LINE, ACCENT_WASH } from "@/ui/kit";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { MOTION } from "@/lib/theme";
 
 // Les KPI hero lisent les stats partagées (src/lib/stats.ts) — mêmes valeurs
 // que l'écran Progrès, jamais recalculées avec une autre logique.
@@ -140,6 +142,9 @@ export default function Dashboard() {
 
   if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
+  // Entrée en stagger : délais croissants, timing pur (aucun rebond)
+  const stagger = (i: number) => FadeInDown.delay(60 + i * 55).duration(MOTION.view);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
       {/* Header */}
@@ -172,6 +177,7 @@ export default function Dashboard() {
       </View>
 
       {/* HERO KPI */}
+      <Animated.View entering={stagger(0)}>
       <Pressable onPress={() => setKpiPickerOpen(true)}>
         <Card feat style={{ marginBottom: 10, padding: 20 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
@@ -216,14 +222,15 @@ export default function Dashboard() {
           )}
         </Card>
       </Pressable>
+      </Animated.View>
 
       {/* BENTO */}
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+      <Animated.View entering={stagger(1)} style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
         {/* Streak */}
         <Card style={{ flex: 1 }}>
           <Label style={{ marginBottom: 8 }}>Streak 7j</Label>
           <Text style={[mono, { fontSize: 28, fontWeight: "800", color: C.ink0 }]}>
-            {streak.filter((d) => d.done).length}
+            <CountUp value={streak.filter((d) => d.done).length} style={{ fontSize: 28, fontWeight: "800", color: C.ink0 }} />
             <Text style={{ fontSize: 14, color: C.ink2, fontWeight: "500" }}> / 7</Text>
           </Text>
           <View style={{ flexDirection: "row", gap: 5, marginTop: 10, height: 34, alignItems: "flex-end" }}>
@@ -255,7 +262,7 @@ export default function Dashboard() {
         <Card style={{ flex: 1 }}>
           <Label style={{ marginBottom: 8 }}>Séances</Label>
           <Text style={[mono, { fontSize: 20, fontWeight: "800", color: C.ink0 }]}>
-            {weekKPI.curr.sessions}
+            <CountUp value={weekKPI.curr.sessions} style={{ fontSize: 20, fontWeight: "800", color: C.ink0 }} />
             <Text style={{ fontSize: 14, color: C.ink2, fontWeight: "500" }}> / {totalSessions}</Text>
           </Text>
           <View style={{ height: 6, backgroundColor: C.bg3, borderRadius: 3, overflow: "hidden", marginTop: 10, marginBottom: 8 }}>
@@ -264,13 +271,13 @@ export default function Dashboard() {
           <Text style={[mono, { fontSize: 11, color: C.ink3 }]}>{weekKPI.curr.sets} séries</Text>
           <Text style={[mono, { fontSize: 11, color: C.ink3 }]}>{formatDur(weekKPI.curr.duration)}</Text>
         </Card>
-      </View>
+      </Animated.View>
 
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+      <Animated.View entering={stagger(2)} style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
         {/* Records */}
         <Card style={{ flex: 1, backgroundColor: "#151020", borderColor: "rgba(255,194,51,.25)" }}>
           <Label style={{ marginBottom: 8, color: C.gold }}>Records</Label>
-          <Text style={[mono, { fontSize: 28, fontWeight: "800", color: C.gold }]}>{weekKPI.curr.prs}</Text>
+          <CountUp value={weekKPI.curr.prs} style={{ fontSize: 28, fontWeight: "800", color: C.gold }} />
           <Text style={{ fontSize: 12, color: C.ink2, marginTop: 6 }}>
             {weekKPI.curr.prs > 0 ? "cette semaine" : lastPR ? "dernier " + formatRelative(lastPR.date) : "aucun pour le moment"}
           </Text>
@@ -280,17 +287,18 @@ export default function Dashboard() {
         <Card style={{ flex: 1 }}>
           <Label style={{ marginBottom: 8 }}>Tonnage 7j</Label>
           <Text style={[mono, { fontSize: 28, fontWeight: "800", color: C.ink0 }]}>
-            {formatNum(weekKPI.curr.tonnage / 1000, 1)}
+            <CountUp value={weekKPI.curr.tonnage / 1000} decimals={1} style={{ fontSize: 28, fontWeight: "800", color: C.ink0 }} />
             <Text style={{ fontSize: 14, color: C.ink2, fontWeight: "500" }}> t</Text>
           </Text>
           <Text style={[mono, { fontSize: 12, fontWeight: "700", marginTop: 6, color: tonDp === null ? C.ink3 : tonDp > 0 ? C.success : C.ink3 }]}>
             {tonDp === null ? "—" : (tonDp > 0 ? "▲ +" : tonDp < 0 ? "▼ " : "") + tonDp.toFixed(1) + "%"}
           </Text>
         </Card>
-      </View>
+      </Animated.View>
 
       {/* Exo du moment */}
       {topExo && (
+        <Animated.View entering={stagger(3)}>
         <Card style={{ marginBottom: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
             <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent }} />
@@ -299,10 +307,12 @@ export default function Dashboard() {
           <Text style={{ fontSize: 18, fontWeight: "700", color: C.ink0 }}>{topExo[0]}</Text>
           <Text style={[mono, { fontSize: 13, color: C.ink2, marginTop: 4 }]}>Score {formatNum(topExo[1])} pts</Text>
         </Card>
+        </Animated.View>
       )}
 
       {/* Muscle qui progresse */}
       {muscleProgs.length > 0 && (
+        <Animated.View entering={stagger(4)}>
         <Pressable onPress={() => router.push(`/muscle/${encodeURIComponent(muscleProgs[0].muscleGroup)}?period=28`)}>
           <Card style={{ marginBottom: 10 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
@@ -342,10 +352,12 @@ export default function Dashboard() {
             )}
           </Card>
         </Pressable>
+        </Animated.View>
       )}
 
       {/* Volume cible hebdo */}
       {volEntries.length > 0 && (
+        <Animated.View entering={stagger(5)}>
         <Card style={{ marginBottom: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -377,9 +389,11 @@ export default function Dashboard() {
             })}
           </View>
         </Card>
+        </Animated.View>
       )}
 
       {/* Carte Pesée cliquable */}
+      <Animated.View entering={stagger(6)}>
       <Pressable onPress={() => router.navigate("/pesee")}>
         <Card style={{ marginBottom: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -398,6 +412,7 @@ export default function Dashboard() {
           </View>
         </Card>
       </Pressable>
+      </Animated.View>
 
       {/* KPI picker */}
       <Sheet open={kpiPickerOpen} onClose={() => setKpiPickerOpen(false)} title="KPI principal">
