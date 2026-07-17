@@ -7,18 +7,10 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
-import {
-  progressionSummary,
-  muscleIndexSummary,
-  tonnageSession,
-  exoKeyNoModel,
-  exoMuscleGroup,
-  iso,
-  daysAgo,
-  type Any,
-} from "@/core/mylift";
+import { exoKeyNoModel, exoMuscleGroup, iso, daysAgo, type Any } from "@/core/mylift";
+import { usePeriodStats } from "@/lib/stats";
 import { formatNum } from "@/lib/format";
-import { Segment, Card, Chip, Label, SectionLabel, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
+import { Segment, Card, Chip, Label, SectionLabel, ScreenSkeleton, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
 import { TonnageBars } from "@/ui/charts";
 
 export default function Progression() {
@@ -32,37 +24,15 @@ export default function Progression() {
 
   const periodDays = period === "all" ? 99999 : parseInt(period);
 
-  const summary = useMemo(() => progressionSummary(journalLogs, exerciseLib, periodDays), [journalLogs, exerciseLib, periodDays]);
-
-  const tonnagePts = useMemo(() => {
-    const cutIso = iso(daysAgo(periodDays));
-    const byDate: Record<string, number> = {};
-    journalLogs.forEach((s) => {
-      if (s.date < cutIso) return;
-      byDate[s.date] = (byDate[s.date] || 0) + tonnageSession(s);
-    });
-    return Object.keys(byDate)
-      .sort()
-      .map((date) => ({ date, value: byDate[date] }));
-  }, [journalLogs, periodDays]);
-
-  const totalTonnage = tonnagePts.reduce((a, p) => a + p.value, 0);
-
-  const prevTonnage = useMemo(() => {
-    if (periodDays >= 99999) return null;
-    const cutEnd = iso(daysAgo(periodDays));
-    const cutStart = iso(daysAgo(periodDays * 2));
-    return journalLogs.filter((s) => s.date >= cutStart && s.date < cutEnd).reduce((a, s) => a + tonnageSession(s), 0);
-  }, [journalLogs, periodDays]);
-
-  const tonnageDeltaPct = prevTonnage !== null && prevTonnage > 0 ? ((totalTonnage - prevTonnage) / prevTonnage) * 100 : null;
+  // Un seul point de calcul, partagé avec le Dashboard (src/lib/stats.ts)
+  const { summary, muscleRanked, tonnagePts, totalTonnage, tonnageDeltaPct } = usePeriodStats(periodDays);
 
   const periodLabel =
     period === "7" ? "7 jours" : period === "30" ? "30 jours" : period === "90" ? "90 jours" : period === "365" ? "1 an" : "tout l'historique";
 
   /* Liste par muscle */
   const renderMuscles = () => {
-    const muscleProgs = muscleIndexSummary(journalLogs, exerciseLib, periodDays);
+    const muscleProgs = muscleRanked;
     if (muscleProgs.length === 0) {
       return (
         <View style={{ alignItems: "center", padding: 40 }}>
@@ -214,6 +184,8 @@ export default function Progression() {
       </View>
     );
   };
+
+  if (!ready) return <ScreenSkeleton paddingTop={insets.top + 12} />;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }}>

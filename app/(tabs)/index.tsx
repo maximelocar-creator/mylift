@@ -8,59 +8,46 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
-import {
-  progressionSummary,
-  muscleIndexSummary,
-  periodKPI,
-  deltaPct,
-  weekActualVolume,
-  startOfWeek,
-  exoScore,
-  daysAgo,
-  iso,
-  type Any,
-} from "@/core/mylift";
+import { iso, type Any } from "@/core/mylift";
+import { usePeriodStats, useWeekStats } from "@/lib/stats";
 import { formatNum, formatDur, formatRelative, formatDate, DOW_FR_S } from "@/lib/format";
 import { Sheet, Card, Chip, Label, SyncDot, ScreenSkeleton, LINE, ACCENT_WASH } from "@/ui/kit";
 
-type KpiDef = { label: string; compute: (ctx: Any) => { big: string; unit: string; sub: string; [k: string]: any } };
+// Les KPI hero lisent les stats partagées (src/lib/stats.ts) — mêmes valeurs
+// que l'écran Progrès, jamais recalculées avec une autre logique.
+type HeroStats = { summary: Any; muscleRanked: Any[]; week: ReturnType<typeof useWeekStats>; currentProgram: Any | null };
+type KpiDef = { label: string; compute: (st: HeroStats) => { big: string; unit: string; sub: string; [k: string]: any } };
 
-// Port fidèle de DASHBOARD_KPIS (v40)
 const DASHBOARD_KPIS: Record<string, KpiDef> = {
   surcharge: {
     label: "Surcharge progressive",
-    compute: (ctx) => {
-      const s = progressionSummary(ctx.journalLogs, ctx.exerciseLib, 28);
-      return {
-        big: s.up + "/" + s.total,
-        unit: "exos en progression",
-        sub: s.prs + (s.prs > 1 ? " nouveaux PR" : " PR") + " · " + s.pct + "% du cycle",
-        summary: s,
-      };
-    },
+    compute: ({ summary }) => ({
+      big: summary.up + "/" + summary.total,
+      unit: "exos en progression",
+      sub: summary.prs + (summary.prs > 1 ? " nouveaux PR" : " PR") + " · " + summary.pct + "% du cycle",
+      summary,
+    }),
   },
   muscle_progress: {
     label: "Muscle qui progresse le plus",
-    compute: (ctx) => {
-      const ranked = muscleIndexSummary(ctx.journalLogs, ctx.exerciseLib, 28);
-      if (!ranked.length) return { big: "—", unit: "", sub: "Pas assez de données (28j)", ranked: [] };
-      const top = ranked[0];
+    compute: ({ muscleRanked }) => {
+      if (!muscleRanked.length) return { big: "—", unit: "", sub: "Pas assez de données (28j)", ranked: [] };
+      const top = muscleRanked[0];
       const sign = top.deltaPct >= 0 ? "+" : "";
       return {
         big: top.muscleGroup,
         unit: sign + top.deltaPct.toFixed(1) + " %",
         sub: top.prs + " PR · " + top.positives + "/" + top.exoCount + " exos en hausse",
-        ranked,
+        ranked: muscleRanked,
       };
     },
   },
   tonnage: {
     label: "Tonnage",
-    compute: (ctx) => {
-      const k = periodKPI(ctx.journalLogs, 7);
-      const dp = deltaPct(k.curr.tonnage, k.prev.tonnage);
+    compute: ({ week }) => {
+      const dp = week.tonnageDeltaPct;
       return {
-        big: formatNum(k.curr.tonnage / 1000, 1),
+        big: formatNum(week.weekKPI.curr.tonnage / 1000, 1),
         unit: "t · 7j",
         sub: dp !== null ? (dp > 0 ? "▲" : dp < 0 ? "▼" : "") + " " + Math.abs(dp).toFixed(1) + "% vs semaine précédente" : "première semaine",
       };
@@ -68,11 +55,10 @@ const DASHBOARD_KPIS: Record<string, KpiDef> = {
   },
   score: {
     label: "Score d'entraînement",
-    compute: (ctx) => {
-      const k = periodKPI(ctx.journalLogs, 7);
-      const dp = deltaPct(k.curr.score, k.prev.score);
+    compute: ({ week }) => {
+      const dp = week.scoreDeltaPct;
       return {
-        big: formatNum(k.curr.score, 0),
+        big: formatNum(week.weekKPI.curr.score, 0),
         unit: "points · 7j",
         sub: dp !== null ? (dp > 0 ? "▲" : dp < 0 ? "▼" : "") + " " + Math.abs(dp).toFixed(1) + "% vs semaine précédente" : "première semaine",
       };
@@ -80,13 +66,12 @@ const DASHBOARD_KPIS: Record<string, KpiDef> = {
   },
   sessions: {
     label: "Séances",
-    compute: (ctx) => {
-      const k = periodKPI(ctx.journalLogs, 7);
-      const freq = ctx.currentProgram?.sessions?.length || 4;
+    compute: ({ week, currentProgram }) => {
+      const freq = currentProgram?.sessions?.length || 4;
       return {
-        big: k.curr.sessions + "",
+        big: week.weekKPI.curr.sessions + "",
         unit: "/ " + freq + " · 7j",
-        sub: k.curr.sets + " séries · " + formatDur(k.curr.duration),
+        sub: week.weekKPI.curr.sets + " séries · " + formatDur(week.weekKPI.curr.duration),
       };
     },
   },
@@ -123,42 +108,13 @@ export default function Dashboard() {
   }, []);
 
   const currentProgram = useMemo(() => programs.find((p) => p.id === profile?.currentProgramId) || programs[0] || null, [programs, profile]);
-  const ctx = { journalLogs, exerciseLib, programs, currentProgram };
 
-  const weekStart = useMemo(() => startOfWeek(new Date()), []);
-  const actualVol = useMemo(() => weekActualVolume(journalLogs, exerciseLib, weekStart), [journalLogs, exerciseLib, weekStart]);
-  const weekKPI = useMemo(() => periodKPI(journalLogs, 7), [journalLogs]);
-  const hero = DASHBOARD_KPIS[heroKpi].compute(ctx);
-
-  const streak = useMemo(() => {
-    const days: Any[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = daysAgo(i);
-      const id = iso(d);
-      days.push({ iso: id, dow: DOW_FR_S[(d.getDay() + 6) % 7], today: i === 0, done: journalLogs.some((l) => l.date === id) });
-    }
-    return days;
-  }, [journalLogs]);
-
-  const topExo = useMemo(() => {
-    const map: Record<string, number> = {};
-    weekKPI.rawSessions.forEach((s: Any) =>
-      (s.exercises || []).forEach((ex: Any) => {
-        const sc = exoScore(ex);
-        if (sc > 0) map[ex.exName || "?"] = (map[ex.exName || "?"] || 0) + sc;
-      })
-    );
-    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    return sorted[0] || null;
-  }, [weekKPI]);
-
-  const lastPR = useMemo(() => {
-    const sorted = [...journalLogs].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    for (const s of sorted) if (s.prs?.length) return { pr: s.prs[0], date: s.date };
-    return null;
-  }, [journalLogs]);
-
-  const muscleProgs = useMemo(() => muscleIndexSummary(journalLogs, exerciseLib, 28), [journalLogs, exerciseLib]);
+  // Un seul point de calcul, partagé avec l'écran Progrès (src/lib/stats.ts)
+  const stats28 = usePeriodStats(28);
+  const week = useWeekStats();
+  const { weekStart, weekKPI, actualVol, streak, topExo, lastPR } = week;
+  const muscleProgs = stats28.muscleRanked;
+  const hero = DASHBOARD_KPIS[heroKpi].compute({ summary: stats28.summary, muscleRanked: stats28.muscleRanked, week, currentProgram });
 
   // Volume cible hebdo
   const volTargets: Record<string, number> = currentProgram?.volumeTargets?.program || {};
@@ -174,7 +130,7 @@ export default function Dashboard() {
   });
 
   const lastWeight = weights.length ? weights[weights.length - 1] : null;
-  const tonDp = deltaPct(weekKPI.curr.tonnage, weekKPI.prev.tonnage);
+  const tonDp = week.tonnageDeltaPct;
   const totalSessions = currentProgram?.sessions?.length || 4;
   const sessPct = Math.min(100, (weekKPI.curr.sessions / totalSessions) * 100);
   const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
@@ -446,7 +402,7 @@ export default function Dashboard() {
         <View style={{ gap: 8 }}>
           {Object.entries(DASHBOARD_KPIS).map(([k, def]) => {
             const active = heroKpi === k;
-            const val = def.compute(ctx);
+            const val = def.compute({ summary: stats28.summary, muscleRanked: stats28.muscleRanked, week, currentProgram });
             return (
               <Pressable
                 key={k}
