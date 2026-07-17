@@ -15,6 +15,7 @@ import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, AC
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
 import { haptic } from "@/lib/haptics";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { ScreenSkeleton } from "@/ui/kit";
 
 const noteKey = (programId: string | null | undefined, sessionId: string) => (programId || "") + "::" + sessionId;
@@ -403,11 +404,11 @@ export default function Journal() {
               </Text>
             </Pressable>
             {expanded && (
-              <View style={{ paddingTop: 4 }}>
+              <Animated.View entering={FadeIn.duration(200)} style={{ paddingTop: 4 }}>
                 {logs.map((log) => (
                   <HistoryRow key={log.id} log={log} onPress={() => setDetailLog(log)} />
                 ))}
-              </View>
+              </Animated.View>
             )}
           </View>
         );

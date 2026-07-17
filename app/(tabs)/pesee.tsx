@@ -10,7 +10,7 @@ import { useData } from "@/lib/store";
 import { useActiveSession } from "@/lib/activeSession";
 import { iso, daysAgo, todayIso, type Any } from "@/core/mylift";
 import { formatDate, formatRelative } from "@/lib/format";
-import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, LINE } from "@/ui/kit";
+import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, SyncDot, LINE } from "@/ui/kit";
 import { IndexChart } from "@/ui/charts";
 
 export default function Pesee() {
@@ -58,7 +58,10 @@ export default function Pesee() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg0 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: bottomPad }}>
       <View style={{ marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Pesée.</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Pesée.</Text>
+          <SyncDot />
+        </View>
         <Btn sm onPress={() => setAddOpen(true)}>
           ＋ Ajouter
         </Btn>
@@ -84,7 +87,10 @@ export default function Pesee() {
         {chart.smooth.length >= 2 ? (
           <IndexChart raw={chart.raw} smooth={chart.smooth} baseline={null} unit="" />
         ) : (
-          <Text style={{ color: C.ink3, textAlign: "center", padding: 20 }}>Pas assez de pesées sur cette période.</Text>
+          <View style={{ alignItems: "center", padding: 20 }}>
+            <Text style={{ fontSize: 28, marginBottom: 6 }}>⚖️</Text>
+            <Text style={{ color: C.ink3, textAlign: "center", fontSize: 13 }}>Pas assez de pesées sur cette période.</Text>
+          </View>
         )}
       </Card>
 

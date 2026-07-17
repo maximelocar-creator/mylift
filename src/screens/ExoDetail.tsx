@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { C, mono } from "../lib/theme";
 import { useData } from "../lib/store";
 import { exoTimeline, exoKeyNoModel, isValidSet, iso, daysAgo, type Any } from "../core/mylift";
@@ -201,6 +202,7 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
       )}
 
       {/* Hero card : indice % (Tout) ou e1RM kg */}
+      <Animated.View entering={FadeInDown.duration(300)}>
       <Card style={{ marginBottom: 12, padding: 20, borderRadius: 22 }}>
         {showIndexView && indexTimeline ? (
           <>
@@ -250,6 +252,7 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
           </>
         )}
       </Card>
+      </Animated.View>
 
       <Segment
         value={period}

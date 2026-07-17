@@ -11,8 +11,9 @@ import { useActiveSession } from "@/lib/activeSession";
 import { exoKeyNoModel, exoMuscleGroup, iso, daysAgo, type Any } from "@/core/mylift";
 import { usePeriodStats } from "@/lib/stats";
 import { formatNum } from "@/lib/format";
-import { Segment, Card, Chip, Label, SectionLabel, ScreenSkeleton, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
+import { Segment, Card, Chip, Label, SectionLabel, ScreenSkeleton, SyncDot, LINE, GOLD_WASH, ACCENT_WASH, SUCCESS_WASH } from "@/ui/kit";
 import { TonnageBars } from "@/ui/charts";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 export default function Progression() {
   const insets = useSafeAreaInsets();
@@ -199,6 +200,9 @@ export default function Progression() {
           <Text style={[mono, { fontSize: 10.5, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", color: C.ink3 }]}>
             {period === "all" ? "Tout l'historique" : "Derniers " + periodDays + " jours"}
           </Text>
+          <View style={{ marginLeft: "auto" }}>
+            <SyncDot />
+          </View>
         </View>
         <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Progression.</Text>
       </View>
@@ -248,7 +252,9 @@ export default function Progression() {
         ]}
       />
 
-      {view === "muscles" ? renderMuscles() : renderExos()}
+      <Animated.View key={view} entering={FadeIn.duration(200)}>
+        {view === "muscles" ? renderMuscles() : renderExos()}
+      </Animated.View>
     </ScrollView>
   );
 }

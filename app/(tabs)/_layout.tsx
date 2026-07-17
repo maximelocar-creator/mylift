@@ -5,6 +5,7 @@ import { View, Text, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
+import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { C } from "@/lib/theme";
 import { LINE } from "@/ui/kit";
 import { useActiveSession } from "@/lib/activeSession";
@@ -35,14 +36,14 @@ export default function TabsLayout() {
       {/* Flottante au-dessus de la tab bar (style mini-player) : ne recouvre
           jamais les headers et reste co-localisée avec la navigation. */}
       {showBanner && (
+        <Animated.View
+          entering={FadeInUp.duration(280)}
+          exiting={FadeOutDown.duration(180)}
+          style={{ position: "absolute", bottom: 64 + insets.bottom + 8, left: 12, right: 12, zIndex: 50 }}
+        >
         <Pressable
           onPress={() => router.navigate("/journal")}
           style={{
-            position: "absolute",
-            bottom: 64 + insets.bottom + 8,
-            left: 12,
-            right: 12,
-            zIndex: 50,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
@@ -74,6 +75,7 @@ export default function TabsLayout() {
           </View>
           <Text style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>Reprendre →</Text>
         </Pressable>
+        </Animated.View>
       )}
       <Tabs
         screenOptions={{

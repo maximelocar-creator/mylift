@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { C, mono } from "../lib/theme";
 import { useData } from "../lib/store";
 import { muscleIndexTimeline, exoTimeline, exoMuscleGroup, exoKey, norm, iso, daysAgo, type Any } from "../core/mylift";
@@ -134,6 +135,7 @@ export default function MuscleDetail({
       )}
 
       {/* Hero : progression % + courbe */}
+      <Animated.View entering={FadeInDown.duration(300)}>
       <Card style={{ marginBottom: 12, padding: 20, borderRadius: 22 }}>
         <Label>Progression · {period === "all" ? "tout l'historique" : periodDaysLocal + " jours"}</Label>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 6, marginBottom: 6 }}>
@@ -153,6 +155,7 @@ export default function MuscleDetail({
           </Text>
         )}
       </Card>
+      </Animated.View>
 
       <Segment
         value={period}
