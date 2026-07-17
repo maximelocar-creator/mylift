@@ -7,7 +7,7 @@ import { tonnageSession, setsCountSession, exoMuscleGroup, isValidSet, type Any 
 import { formatNum, formatDur } from "../lib/format";
 import { useData } from "../lib/store";
 import { Btn, LINE } from "../ui/kit";
-import { ComposePost, type PostDraft } from "./ComposePost";
+import { ShareSessionSheet } from "./ComposePost";
 import { useState } from "react";
 
 export default function SessionRecap({ log, onClose }: { log: Any; onClose: () => void }) {
@@ -18,17 +18,6 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
   const prs = log.prs || [];
   const [composeOpen, setComposeOpen] = useState(false);
 
-  // UN SEUL post séance depuis le récap, PR(s) valorisés dedans (décision
-  // Maxime). Payload SANS aucune référence machine (modelId strippé).
-  const draft: PostDraft = {
-    type: "session",
-    log_id: log.id,
-    defaultTitle: `Séance ${log.sessionName || ""}`.trim() + (prs.length ? ` · ${prs.length} PR${prs.length > 1 ? "s" : ""}` : ""),
-    lift_ref: {
-      stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
-      prList: prs.map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
-    },
-  };
 
   // Volume (séries validées) par muscle
   const byMuscle: Record<string, number> = {};
@@ -150,7 +139,7 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
           </View>
         </View>
 
-        <ComposePost open={composeOpen} onClose={() => setComposeOpen(false)} draft={draft} />
+        <ShareSessionSheet log={log} open={composeOpen} onClose={() => setComposeOpen(false)} />
       </View>
     </Modal>
   );

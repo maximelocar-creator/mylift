@@ -12,13 +12,20 @@
 // 3. META_APP_ID : Instagram exige un App ID Meta (developers.facebook.com)
 //    pour attribuer la source. À créer et renseigner avant le build EAS.
 import { Platform, Linking } from "react-native";
+import Constants from "expo-constants";
 import { C } from "./theme";
 
 export const META_APP_ID = ""; // PROD/BUILD : App ID Meta à renseigner
 
+// Expo Go n'embarque PAS le natif de react-native-share : même sous try/catch,
+// l'Invariant Violation du TurboModuleRegistry remonte au gestionnaire global
+// et fait un redbox (crash vécu). On ne tente donc JAMAIS le require dans
+// Expo Go — en build EAS (appOwnership ≠ "expo"), le module est autolinked.
+const IN_EXPO_GO = Constants.appOwnership === "expo";
+
 function loadRNShare(): { default: { shareSingle: (o: object) => Promise<unknown> } } | null {
+  if (IN_EXPO_GO) return null;
   try {
-    // require paresseux : jette dans Expo Go (pas de module natif), ok en build EAS
     return require("react-native-share");
   } catch {
     return null;

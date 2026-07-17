@@ -10,7 +10,7 @@ import { C, R, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
-import { ComposePost } from "@/screens/ComposePost";
+import { ShareSessionSheet } from "@/screens/ComposePost";
 import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } from "@/lib/format";
 import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH, SyncDot } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
@@ -103,12 +103,38 @@ function SessionCard({
         <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color={C.ink3} />
       </View>
 
-      {!expanded && topExos.length > 0 && (
+      {!expanded && topExos.length > 0 && recommended && (
+        <View style={{ marginBottom: 14, borderRadius: 12, backgroundColor: "rgba(255,255,255,.03)", borderWidth: 1, borderColor: LINE, overflow: "hidden" }}>
+          {topExos.map((n: string, i: number) => (
+            <View
+              key={i}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                paddingVertical: 9,
+                paddingHorizontal: 12,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: LINE,
+              }}
+            >
+              <Text style={[mono, { fontSize: 10, fontWeight: "800", color: C.accentHi, width: 16 }]}>{i + 1}</Text>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: "600", color: C.ink1 }}>
+                {n}
+              </Text>
+            </View>
+          ))}
+          {more > 0 && (
+            <View style={{ paddingVertical: 8, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: LINE }}>
+              <Text style={[mono, { fontSize: 11, fontWeight: "700", color: C.ink3 }]}>+ {more} autre{more > 1 ? "s" : ""} exo{more > 1 ? "s" : ""}</Text>
+            </View>
+          )}
+        </View>
+      )}
+      {!expanded && topExos.length > 0 && !recommended && (
         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4, marginBottom: 12 }}>
           {topExos.map((n: string, i: number) => (
-            <Chip key={i} tone={i === 0 && recommended ? "primary" : undefined}>
-              {n}
-            </Chip>
+            <Chip key={i}>{n}</Chip>
           ))}
           {more > 0 && <Chip>+ {more}</Chip>}
         </View>
@@ -569,25 +595,7 @@ export default function Journal() {
 
       {/* Partage d'une séance passée : même composeur que le récap (feed + export Insta).
           Payload machine-free : stats + PRs, jamais de modelId. */}
-      <ComposePost
-        open={!!shareLog}
-        onClose={() => setShareLog(null)}
-        draft={
-          shareLog
-            ? {
-                type: "session",
-                log_id: shareLog.id,
-                defaultTitle:
-                  `Séance ${shareLog.sessionName || ""}`.trim() +
-                  ((shareLog.prs || []).length ? ` · ${shareLog.prs.length} PR${shareLog.prs.length > 1 ? "s" : ""}` : ""),
-                lift_ref: {
-                  stats: { durationSec: shareLog.durationSec || 0, tonnage: tonnageSession(shareLog), prs: (shareLog.prs || []).length },
-                  prList: (shareLog.prs || []).map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
-                },
-              }
-            : null
-        }
-      />
+      <ShareSessionSheet log={shareLog} open={!!shareLog} onClose={() => setShareLog(null)} />
 
       {/* Sheet note de séance future */}
       <Sheet open={!!noteEdit} onClose={() => setNoteEdit(null)} title={noteEdit ? "Note · " + noteEdit.session.name : "Note"}>

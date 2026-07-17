@@ -16,7 +16,7 @@ import { shareStickerToInstagramStories } from "../lib/instagram";
 import { useData } from "../lib/store";
 import * as social from "../db/social";
 import { pickFromLibrary, takePhoto, uploadImage, type PickedImage } from "../lib/images";
-import { Sheet, Btn, Label, Chip } from "../ui/kit";
+import { Sheet, Btn, Label, Chip, afterSheetClose } from "../ui/kit";
 import { formatDur, formatNum } from "../lib/format";
 import type { Any } from "../core/mylift";
 
@@ -172,6 +172,148 @@ function StickerCard({ draft, title, shotRef }: { draft: PostDraft; title: strin
         </View>
       </View>
     </ViewShot>
+  );
+}
+
+/* Construit le brouillon "séance complète" d'un log (payload sans machine). */
+export function sessionDraftOf(log: Any): PostDraft {
+  const prs: Any[] = log.prs || [];
+  const ton = (log.exercises || []).reduce(
+    (a: number, ex: Any) => a + (ex.sets || []).reduce((b: number, s: Any) => b + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0),
+    0
+  );
+  return {
+    type: "session",
+    log_id: log.id,
+    defaultTitle: `Séance ${log.sessionName || ""}`.trim() + (prs.length ? ` · ${prs.length} PR${prs.length > 1 ? "s" : ""}` : ""),
+    lift_ref: {
+      stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
+      prList: prs.map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
+    },
+  };
+}
+
+/* Point d'entrée de partage d'une séance (récap de fin OU journal) :
+   choix « séance complète » ou « un lift précis » (meilleure série de chaque
+   exo, PR signalé). Une seule Sheet dont le contenu commute (jamais deux
+   Modals swappées), puis ComposePost s'ouvre via afterSheetClose. */
+export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; open: boolean; onClose: () => void }) {
+  const [mode, setMode] = useState<"choose" | "lift">("choose");
+  const [draft, setDraft] = useState<PostDraft | null>(null);
+
+  const candidates: Any[] = (log?.exercises || [])
+    .map((ex: Any) => {
+      const sets = (ex.sets || []).filter((s: Any) => (parseFloat(s.weight) || 0) > 0 && (parseInt(s.reps) || 0) > 0);
+      if (!sets.length) return null;
+      const best = sets.reduce((a: Any, b: Any) =>
+        parseFloat(b.weight) > parseFloat(a.weight) || (parseFloat(b.weight) === parseFloat(a.weight) && parseInt(b.reps) > parseInt(a.reps)) ? b : a
+      );
+      const w = parseFloat(best.weight);
+      const r = parseInt(best.reps);
+      const pr = (log?.prs || []).find((p: Any) => p.exName === ex.exName && parseFloat(p.weight) === w);
+      return { exName: ex.exName, weight: w, reps: r, prType: pr?.type ?? null };
+    })
+    .filter(Boolean);
+
+  const pick = (d: PostDraft) => {
+    onClose();
+    haptic("light");
+    afterSheetClose(() => setDraft(d));
+  };
+
+  const closeChooser = () => {
+    setMode("choose");
+    onClose();
+  };
+
+  return (
+    <>
+      <Sheet open={open} onClose={closeChooser} title={mode === "choose" ? "Partager" : "Choisir le lift"}>
+        {mode === "choose" ? (
+          <View style={{ gap: 8 }}>
+            <Pressable
+              onPress={() => log && pick(sessionDraftOf(log))}
+              style={({ pressed }) => ({ padding: 16, borderRadius: 14, backgroundColor: pressed ? L.bgHover : C.bg3, borderWidth: 1, borderColor: L.line })}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "800", color: C.ink0 }}>Séance complète</Text>
+              <Text style={{ fontSize: 12, color: C.ink2, marginTop: 3, lineHeight: 17 }}>
+                Durée, volume et PRs mis en avant dans un seul post.
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (!candidates.length) {
+                  haptic("warning");
+                  return;
+                }
+                setMode("lift");
+                haptic("light");
+              }}
+              style={({ pressed }) => ({
+                padding: 16,
+                borderRadius: 14,
+                backgroundColor: pressed ? L.bgHover : C.bg3,
+                borderWidth: 1,
+                borderColor: L.line,
+                opacity: candidates.length ? 1 : 0.5,
+              })}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "800", color: C.ink0 }}>Un lift précis</Text>
+              <Text style={{ fontSize: 12, color: C.ink2, marginTop: 3, lineHeight: 17 }}>
+                Mets en avant une seule perf (meilleure série d'un exo).
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={{ gap: 6 }}>
+            {candidates.map((c: Any, i: number) => (
+              <Pressable
+                key={i}
+                onPress={() =>
+                  pick({
+                    type: "lift",
+                    defaultTitle: `${c.exName} · ${c.weight} kg × ${c.reps}`,
+                    lift_ref: { exName: c.exName, weight: c.weight, reps: c.reps, ...(c.prType ? { prType: c.prType } : {}) },
+                  })
+                }
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: pressed ? L.bgHover : C.bg3,
+                  borderWidth: 1,
+                  borderColor: c.prType ? "rgba(255,194,51,.3)" : L.line,
+                })}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "700", color: C.ink0 }}>
+                    {c.exName}
+                  </Text>
+                </View>
+                <Text style={[mono, { fontSize: 13, fontWeight: "800", color: c.prType ? C.gold : C.ink1 }]}>
+                  {c.weight} kg × {c.reps}
+                </Text>
+                {!!c.prType && <Text style={{ fontSize: 12 }}>🏆</Text>}
+              </Pressable>
+            ))}
+            <Btn kind="ghost" full onPress={() => setMode("choose")} style={{ marginTop: 4 }}>
+              ‹ Retour
+            </Btn>
+          </View>
+        )}
+      </Sheet>
+
+      <ComposePost
+        open={!!draft}
+        onClose={() => {
+          setDraft(null);
+          setMode("choose");
+        }}
+        draft={draft}
+      />
+    </>
   );
 }
 
