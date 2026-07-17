@@ -47,5 +47,10 @@ as $$
   limit max_results;
 $$;
 
-grant execute on function public.friend_suggestions(int) to authenticated;
+-- Postgres accorde EXECUTE à PUBLIC par défaut sur toute fonction : le
+-- retirer d'abord, sinon anon garde l'accès via PUBLIC (constaté en prod —
+-- sans session la fonction renvoie une liste vide, aucune fuite, mais on
+-- ferme quand même proprement).
+revoke execute on function public.friend_suggestions(int) from public;
 revoke execute on function public.friend_suggestions(int) from anon;
+grant execute on function public.friend_suggestions(int) to authenticated;
