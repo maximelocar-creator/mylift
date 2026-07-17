@@ -235,6 +235,47 @@ la Phase 2, pas de maintenant.
 - Chiffres en tabular-nums partout, touch targets ≥44px minimum
 
 ### Phase 2 — Profils et découverte
+
+**Première expérience utilisateur (onboarding grand public)** — priorité forte
+de la Phase 2. Aujourd'hui le parcours d'entrée est fait pour Maxime
+uniquement (login brut + import de son backup). Il faut construire un vrai
+premier lancement soigné pour quelqu'un qui découvre MyLift et n'a aucune
+donnée. Étapes :
+
+1. Création de compte — trois méthodes au choix :
+   - Email + mot de passe
+   - Sign in with Google
+   - Sign in with Apple
+   (Apple et Google nécessitent un build natif EAS, non testables en Expo Go —
+   les câbler et les valider en même temps que le premier build custom.)
+
+2. Création du profil : choix du username (unicité vérifiée), ville optionnelle,
+   bio optionnelle, avatar optionnel. Écran soigné, pas un simple formulaire
+   brut — c'est la première vraie impression de l'app.
+
+3. Création du premier programme, deux voies proposées clairement :
+   - Automatique : génération d'un programme adapté (via la logique `auto` /
+     recommendedSession portée depuis la v40) à partir de quelques questions
+     simples (fréquence, niveau, groupes prioritaires).
+   - Manuelle : création guidée pas à pas de son premier programme (nommer →
+     séances → exos → variantes → cibles), en réutilisant l'écran d'édition de
+     programme porté depuis la v40.
+
+4. Bibliothèque d'exercices de base : chaque nouvel utilisateur démarre avec la
+   bibliothèque seed (les exercices canoniques `is_seed`, qui sont ceux de
+   Maxime issus de la v40) MAIS sans aucune machine perso (exercise_models) —
+   les machines sont strictement personnelles et propres à chaque compte, un
+   nouvel utilisateur part avec zéro machine et crée les siennes au fur et à
+   mesure. Vérifier que le seed global ne fuite jamais les models de Maxime
+   (déjà garanti par la RLS owner-only sur exercise_models, mais à confirmer
+   côté parcours de création de compte : un compte neuf ne doit voir que les
+   exercices seed, pas les machines d'un autre).
+
+Distinction à garder nette dans le code : l'écran d'import backup (outil
+interne Maxime, isolé derrière un accès discret depuis la Phase 1) et ce nouvel
+onboarding grand public sont deux parcours séparés. L'import ne fait pas partie
+du flow d'un utilisateur normal.
+
 - Onboarding grand public réel : création de compte → choix username → soit
   import d'un backup (cas Maxime) soit création d'un premier programme vide
   guidée (cas nouvel utilisateur)
