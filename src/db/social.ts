@@ -51,7 +51,7 @@ export async function createProfile(userId: string, username: string): Promise<v
 const otherIdOf = (row: Any, me: string) => (row.follower_id === me ? row.following_id : row.follower_id);
 
 /** Toutes mes lignes accepted (un sens ou l'autre) = mes amis. */
-async function fetchFriendRows(me: string): Promise<Any[]> {
+export async function fetchFriendRows(me: string): Promise<Any[]> {
   const { data, error } = await supabase
     .from("follows")
     .select("*")
@@ -199,23 +199,81 @@ export async function fetchFeedPosts(me: string): Promise<Any[]> {
   const ids = [me, ...friends.map((r) => otherIdOf(r, me))];
   const { data, error } = await supabase.from("posts").select("*").in("owner_id", ids).order("created_at", { ascending: false }).limit(50);
   if (error) throw new Error(error.message);
-  return attachProfiles(data ?? [], "owner_id");
+  return enrichPostsSocial(await attachProfiles(data ?? [], "owner_id"), me);
 }
 
 /** Posts d'un utilisateur (la RLS tranche : visibles seulement si ami accepté
  *  dans le sens lecteur→auteur, ou soi-même). */
-export async function fetchUserPosts(ownerId: string): Promise<Any[]> {
+export async function fetchUserPosts(ownerId: string, me?: string): Promise<Any[]> {
   const { data, error } = await supabase.from("posts").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(50);
   if (error) throw new Error(error.message);
-  return attachProfiles(data ?? [], "owner_id");
+  return enrichPostsSocial(await attachProfiles(data ?? [], "owner_id"), me ?? null);
 }
 
-export async function fetchPost(postId: string): Promise<Any | null> {
+export async function fetchPost(postId: string, me?: string): Promise<Any | null> {
   const { data, error } = await supabase.from("posts").select("*").eq("id", postId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  const rows = await attachProfiles([data], "owner_id");
+  const rows = await enrichPostsSocial(await attachProfiles([data], "owner_id"), me ?? null);
   return rows[0] ?? null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Likes & commentaires (Phase 4)                                      */
+/* Sondé en prod : likes(post_id, user_id, created_at) ; comments(id   */
+/* text client, post_id, user_id, text ≤500 CHECK, created_at). La RLS */
+/* bloque l'usurpation (user_id = auth.uid()) et n'autorise le delete  */
+/* que sur ses propres lignes (pas de modération du owner du post).    */
+/* ------------------------------------------------------------------ */
+
+/** Ajoute like_count / liked_by_me / comment_count sur chaque post. */
+async function enrichPostsSocial(posts: Any[], me: string | null): Promise<Any[]> {
+  if (!posts.length) return posts;
+  const ids = posts.map((p) => p.id);
+  const [likes, comments] = await Promise.all([
+    supabase.from("likes").select("post_id,user_id").in("post_id", ids),
+    supabase.from("comments").select("post_id").in("post_id", ids),
+  ]);
+  const likeCount: Record<string, number> = {};
+  const mine = new Set<string>();
+  (likes.data ?? []).forEach((l: Any) => {
+    likeCount[l.post_id] = (likeCount[l.post_id] || 0) + 1;
+    if (me && l.user_id === me) mine.add(l.post_id);
+  });
+  const comCount: Record<string, number> = {};
+  (comments.data ?? []).forEach((c: Any) => {
+    comCount[c.post_id] = (comCount[c.post_id] || 0) + 1;
+  });
+  return posts.map((p) => ({ ...p, like_count: likeCount[p.id] || 0, liked_by_me: mine.has(p.id), comment_count: comCount[p.id] || 0 }));
+}
+
+export async function setLiked(postId: string, me: string, liked: boolean): Promise<void> {
+  if (liked) {
+    const { error } = await supabase.from("likes").upsert({ post_id: postId, user_id: me }, { ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", me);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function fetchComments(postId: string): Promise<Any[]> {
+  const { data, error } = await supabase.from("comments").select("*").eq("post_id", postId).order("created_at", { ascending: true }).limit(200);
+  if (error) throw new Error(error.message);
+  return attachProfiles(data ?? [], "user_id");
+}
+
+export async function addComment(postId: string, me: string, text: string): Promise<Any> {
+  const id = "id-" + Math.random().toString(36).slice(2, 9) + "-" + Date.now();
+  const row = { id, post_id: postId, user_id: me, text: text.slice(0, 500) };
+  const { error } = await supabase.from("comments").insert(row);
+  if (error) throw new Error(error.message);
+  return row;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase.from("comments").delete().eq("id", commentId);
+  if (error) throw new Error(error.message);
 }
 
 /** Mon lien sortant vers `other` est-il accepted ? (= la RLS me laisse voir

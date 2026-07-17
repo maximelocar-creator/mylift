@@ -1,6 +1,8 @@
-// Notifs — demandes d'AMI reçues (accepter/refuser) et envoyées (annuler).
-// Les notifications likes/commentaires arrivent en Phase 4.
-import { useState } from "react";
+// Notifs — demandes d'AMI reçues (accepter/refuser) et envoyées (annuler)
+// + activité (likes/commentaires sur mes posts, amitiés établies), dérivée
+// côté client (la RLS interdit tout insert dans la table notifications).
+// Ouvrir l'écran marque tout comme lu (badge du Feed remis à zéro).
+import { useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -12,15 +14,28 @@ import { useSocial } from "@/lib/social";
 import * as social from "@/db/social";
 import { SectionLabel, Btn, SyncDot } from "@/ui/kit";
 import { Avatar } from "@/ui/Avatar";
+import { formatRelative } from "@/lib/format";
+import type { AppNotification } from "@/lib/notifs";
 import type { Any } from "@/core/mylift";
+
+const ACTIVITY_LABEL: Record<AppNotification["type"], string> = {
+  like: "a aimé ton post",
+  comment: "a commenté ton post",
+  friend: "et toi êtes maintenant amis",
+};
 
 export default function Notifs() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { userId } = useData();
-  const { incoming, outgoing, refreshSocial } = useSocial();
+  const { incoming, outgoing, activity, refreshSocial, markActivityRead } = useSocial();
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Ouvrir l'écran = tout marquer lu
+  useEffect(() => {
+    markActivityRead();
+  }, [markActivityRead]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -53,7 +68,7 @@ export default function Notifs() {
         <SyncDot />
       </View>
 
-      {incoming.length === 0 && outgoing.length === 0 && (
+      {incoming.length === 0 && outgoing.length === 0 && activity.length === 0 && (
         <View style={{ alignItems: "center", padding: 40, gap: 8 }}>
           <Text style={{ fontSize: 36 }}>🔔</Text>
           <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink1 }}>Rien pour l'instant</Text>
@@ -143,6 +158,36 @@ export default function Notifs() {
                   Annuler
                 </Btn>
               </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {activity.length > 0 && (
+        <>
+          <SectionLabel>Activité</SectionLabel>
+          <View style={{ gap: 6 }}>
+            {activity.map((n) => (
+              <Pressable
+                key={n.key}
+                onPress={() => (n.postId ? router.push(`/post/${n.postId}`) : router.push(`/user/${n.actorId}`))}
+                style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16 }}
+              >
+                <Avatar profile={n.profile} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={2} style={{ fontSize: 13, color: C.ink1, lineHeight: 18 }}>
+                    <Text style={{ fontWeight: "800", color: C.ink0 }}>@{n.profile?.username}</Text> {ACTIVITY_LABEL[n.type]}
+                    {n.postTitle ? <Text style={{ color: C.ink2 }}> « {n.postTitle} »</Text> : null}
+                  </Text>
+                  {!!n.text && (
+                    <Text numberOfLines={1} style={{ fontSize: 12, color: C.ink3, marginTop: 2, fontStyle: "italic" }}>
+                      {n.text}
+                    </Text>
+                  )}
+                  <Text style={{ fontSize: 10.5, color: C.ink3, marginTop: 2 }}>{formatRelative(String(n.created_at).slice(0, 10))}</Text>
+                </View>
+                <Text style={{ fontSize: 16 }}>{n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : "🤝"}</Text>
+              </Pressable>
             ))}
           </View>
         </>

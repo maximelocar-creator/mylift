@@ -4,13 +4,63 @@
 // prennent la vedette (la carte ne doit pas paraître vide).
 // CONFIDENTIALITÉ : lift_ref ne contient jamais de nom de machine
 // (exercise_models) — seuls exName/weight/reps/prType sont rendus.
+import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Image, useWindowDimensions } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { C, L, MOTION, mono } from "../lib/theme";
 import { formatRelative, formatDur, formatNum } from "../lib/format";
+import { haptic } from "../lib/haptics";
+import { useData } from "../lib/store";
+import * as social from "../db/social";
 import { Avatar } from "./Avatar";
 import { Chip } from "./kit";
 import type { Any } from "../core/mylift";
+
+/** Ligne like/commentaires — optimistic update, rollback si l'écriture échoue.
+ *  Un like n'est visible que si le post l'est (RLS directionnelle intouchée). */
+function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
+  const { userId } = useData();
+  const [liked, setLiked] = useState<boolean>(!!post.liked_by_me);
+  const [count, setCount] = useState<number>(post.like_count || 0);
+  const busy = useRef(false);
+  useEffect(() => {
+    setLiked(!!post.liked_by_me);
+    setCount(post.like_count || 0);
+  }, [post.id, post.liked_by_me, post.like_count]);
+
+  const toggle = async () => {
+    if (!userId || busy.current) return;
+    busy.current = true;
+    const next = !liked;
+    setLiked(next);
+    setCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    haptic("light");
+    try {
+      await social.setLiked(post.id, userId, next);
+    } catch {
+      // rollback : l'écriture a échoué (offline, RLS…)
+      setLiked(!next);
+      setCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      haptic("error");
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 18, marginTop: 10 }}>
+      <Pressable onPress={toggle} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 }}>
+        <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? C.accent : C.ink2} />
+        {count > 0 && <Text style={[mono, { fontSize: 12.5, fontWeight: "700", color: liked ? C.accent : C.ink2 }]}>{count}</Text>}
+      </Pressable>
+      <Pressable onPress={onOpen} disabled={!onOpen} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 }}>
+        <Ionicons name="chatbubble-outline" size={18} color={C.ink2} />
+        {(post.comment_count || 0) > 0 && <Text style={[mono, { fontSize: 12.5, fontWeight: "700", color: C.ink2 }]}>{post.comment_count}</Text>}
+      </Pressable>
+    </View>
+  );
+}
 
 export function PostCard({
   post,
@@ -127,6 +177,8 @@ export function PostCard({
             {post.text}
           </Text>
         )}
+
+        <SocialRow post={post} onOpen={onOpen} />
       </View>
     </View>
   );

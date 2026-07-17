@@ -44,7 +44,7 @@ export default function UserProfile() {
       if (st === "friends") {
         // Piège RLS directionnel (CLAUDE.md) : mes posts visibles seulement si
         // MON lien sortant est accepted — sinon la réciprocité converge encore.
-        const [rows, out] = await Promise.all([social.fetchUserPosts(otherId), social.outboundAccepted(userId!, otherId)]);
+        const [rows, out] = await Promise.all([social.fetchUserPosts(otherId, userId!), social.outboundAccepted(userId!, otherId)]);
         setPosts(rows);
         setSyncingFriendship(!out && rows.length === 0);
       } else {

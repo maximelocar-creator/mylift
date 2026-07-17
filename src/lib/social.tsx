@@ -3,12 +3,17 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { AppState } from "react-native";
 import * as social from "../db/social";
+import * as notifs from "./notifs";
+import type { AppNotification } from "./notifs";
 import type { Any } from "../core/mylift";
 
 type SocialState = {
   incoming: Any[];
   outgoing: Any[];
   friendCount: number;
+  activity: AppNotification[];
+  unreadActivity: number;
+  markActivityRead: () => Promise<void>;
   refreshSocial: () => Promise<void>;
 };
 
@@ -24,22 +29,34 @@ export function SocialProvider({ userId, children }: { userId: string | null; ch
   const [incoming, setIncoming] = useState<Any[]>([]);
   const [outgoing, setOutgoing] = useState<Any[]>([]);
   const [friendCount, setFriendCount] = useState(0);
+  const [activity, setActivity] = useState<AppNotification[]>([]);
+  const [unreadActivity, setUnreadActivity] = useState(0);
 
   const refreshSocial = useCallback(async () => {
     if (!userId) return;
     try {
       await social.ensureReciprocity(userId);
-      const [inc, out, cnt] = await Promise.all([
+      const [inc, out, cnt, act, readAt] = await Promise.all([
         social.fetchIncomingPending(userId),
         social.fetchOutgoingPending(userId),
         social.fetchFriendCount(userId),
+        notifs.fetchActivity(userId),
+        notifs.getReadAt(userId),
       ]);
       setIncoming(inc);
       setOutgoing(out);
       setFriendCount(cnt);
+      setActivity(act);
+      setUnreadActivity(notifs.countUnread(act, readAt));
     } catch {
       // hors ligne : on garde le dernier état connu
     }
+  }, [userId]);
+
+  const markActivityRead = useCallback(async () => {
+    if (!userId) return;
+    await notifs.markAllRead(userId);
+    setUnreadActivity(0);
   }, [userId]);
 
   useEffect(() => {
@@ -50,5 +67,5 @@ export function SocialProvider({ userId, children }: { userId: string | null; ch
     return () => sub.remove();
   }, [refreshSocial]);
 
-  return <Ctx.Provider value={{ incoming, outgoing, friendCount, refreshSocial }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ incoming, outgoing, friendCount, activity, unreadActivity, markActivityRead, refreshSocial }}>{children}</Ctx.Provider>;
 }

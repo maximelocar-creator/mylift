@@ -39,7 +39,7 @@ export default function Profil() {
     try {
       const p = await social.fetchProfile(userId);
       setProfile(p);
-      setMyPosts(await social.fetchUserPosts(userId));
+      setMyPosts(await social.fetchUserPosts(userId, userId));
     } catch {}
   }, [userId]);
   // Recharge à chaque retour sur l'onglet — un post publié depuis le récap

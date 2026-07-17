@@ -23,7 +23,8 @@ export default function Feed() {
   const router = useRouter();
   const { profile, ready, userId } = useData();
   const { activeSession } = useActiveSession();
-  const { incoming } = useSocial();
+  const { incoming, unreadActivity } = useSocial();
+  const badge = incoming.length + unreadActivity;
   const bottomPad = 24 + (activeSession ? 64 : 0);
   const [posts, setPosts] = useState<Any[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,7 +86,7 @@ export default function Feed() {
           </Pressable>
           <Pressable onPress={() => router.push("/notifs")} hitSlop={8} style={{ padding: 6 }}>
             <Ionicons name="notifications-outline" size={20} color={C.ink1} />
-            {incoming.length > 0 && (
+            {badge > 0 && (
               <View
                 style={{
                   position: "absolute",
@@ -100,7 +101,7 @@ export default function Feed() {
                   paddingHorizontal: 3,
                 }}
               >
-                <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>{incoming.length}</Text>
+                <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>{badge}</Text>
               </View>
             )}
           </Pressable>
