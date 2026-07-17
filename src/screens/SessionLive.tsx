@@ -113,7 +113,10 @@ function RestTimer({
             justifyContent: "center",
           })}
         >
-          <Text style={{ fontSize: 13, fontWeight: "700", color: running ? C.ink2 : C.success }}>{running ? "⏸ Pause" : "▶ Start"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name={running ? "pause" : "play"} size={14} color={running ? C.ink2 : C.success} />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: running ? C.ink2 : C.success }}>{running ? "Pause" : "Start"}</Text>
+          </View>
         </Pressable>
         <Pressable
           onPress={onAddRest}
@@ -149,7 +152,7 @@ function RestTimer({
             justifyContent: "center",
           })}
         >
-          <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink2 }}>↺</Text>
+          <Ionicons name="refresh" size={16} color={C.ink2} />
         </Pressable>
       </View>
     </View>

@@ -54,30 +54,36 @@ function SessionCard({
     <Pressable
       onPress={() => setExpanded(!expanded)}
       style={{
-        backgroundColor: C.bg2,
+        backgroundColor: recommended ? C.bg1 : C.bg2,
         borderWidth: 1,
-        borderColor: recommended ? "rgba(252,76,2,.3)" : LINE,
-        borderRadius: R.md,
-        padding: 18,
+        borderColor: recommended ? "rgba(252,76,2,.4)" : LINE,
+        borderRadius: recommended ? R.lg : R.md,
+        padding: recommended ? 20 : 18,
         marginBottom: 10,
         overflow: "hidden",
+        // Halo accent discret — même langage que la bannière séance en cours
+        ...(recommended
+          ? { shadowColor: C.accent, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 }
+          : null),
       }}
     >
       {recommended && (
-        <View style={{ position: "absolute", left: 0, top: 18, bottom: 18, width: 3, backgroundColor: C.accent, borderTopRightRadius: 2, borderBottomRightRadius: 2 }} />
+        <>
+          {/* Voile chaud en tête de carte, fondu vers le fond */}
+          <View style={{ position: "absolute", left: 0, right: 0, top: 0, height: 64, backgroundColor: ACCENT_WASH }} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <Ionicons name="sparkles" size={11} color={C.accentHi} />
+            <Text style={[mono, { fontSize: 10, fontWeight: "800", letterSpacing: 1.6, textTransform: "uppercase", color: C.accentHi }]}>
+              Recommandée aujourd'hui
+            </Text>
+          </View>
+        </>
       )}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
-            <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: "800", letterSpacing: -0.3, color: C.ink0, flexShrink: 1 }}>
-              {session.name}
-            </Text>
-            {recommended && (
-              <View style={{ backgroundColor: "rgba(255,194,51,.14)", paddingVertical: 3, paddingHorizontal: 7, borderRadius: 999 }}>
-                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase", color: C.gold }}>Reco</Text>
-              </View>
-            )}
-          </View>
+          <Text numberOfLines={1} style={{ fontSize: recommended ? 22 : 18, fontWeight: "800", letterSpacing: recommended ? -0.7 : -0.3, color: C.ink0, marginBottom: 2 }}>
+            {session.name}
+          </Text>
           <Text numberOfLines={1} style={{ fontSize: 12, color: C.ink2, fontWeight: "500" }}>
             {exos.length} exo{exos.length > 1 ? "s" : ""}
             {lastLog ? " · " + formatRelative(lastLog.date) : " · jamais fait"}
@@ -150,7 +156,7 @@ function SessionCard({
       )}
 
       <Btn kind={recommended ? "primary" : "ghost"} full onPress={onStart}>
-        ▶ Commencer
+        Commencer
       </Btn>
     </Pressable>
   );
