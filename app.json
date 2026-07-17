@@ -13,7 +13,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.maxime.mylift"
+      "bundleIdentifier": "com.maxime.mylift",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["instagram", "instagram-stories"]
+      }
     },
     "plugins": [
       "expo-router",

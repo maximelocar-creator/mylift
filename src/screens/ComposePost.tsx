@@ -12,6 +12,7 @@ import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { C, L, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
+import { shareStickerToInstagramStories } from "../lib/instagram";
 import { useData } from "../lib/store";
 import * as social from "../db/social";
 import { pickFromLibrary, takePhoto, uploadImage, type PickedImage } from "../lib/images";
@@ -105,6 +106,75 @@ function ShareCard({ draft, title, story, shotRef }: { draft: PostDraft; title: 
   );
 }
 
+/* Sticker story Instagram — PNG TRANSPARENT épuré (style Strava) : éléments
+   posés sur la photo de l'utilisateur, scrim léger derrière le texte pour la
+   lisibilité. Variante A séance / B lift selon draft.type. Pas de carte
+   pleine : seul le bloc de contenu porte un voile sombre arrondi. */
+function StickerCard({ draft, title, shotRef }: { draft: PostDraft; title: string; shotRef: any }) {
+  const lift = draft.type === "lift" ? draft.lift_ref : null;
+  const stats = draft.type === "session" ? draft.lift_ref?.stats : null;
+  const prList: Any[] = draft.type === "session" ? (draft.lift_ref?.prList ?? []) : [];
+  return (
+    <ViewShot ref={shotRef} options={{ format: "png", quality: 1 }} style={{ position: "absolute", left: -9999, width: 340 }}>
+      {/* Racine SANS fond → PNG transparent */}
+      <View style={{ width: 340, backgroundColor: "transparent", padding: 10 }}>
+        <View style={{ backgroundColor: L.scrim, borderRadius: 26, padding: 22, borderWidth: 1, borderColor: L.lineStrong }}>
+          <Text style={{ color: C.ink0, fontSize: 17, fontWeight: "900", letterSpacing: -0.6 }}>
+            My<Text style={{ color: C.accent }}>Lift</Text>
+          </Text>
+          <Text style={{ color: C.ink2, fontSize: 10.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 2, marginTop: 10 }}>
+            {draft.type === "lift" ? "Nouveau record" : "Séance terminée"}
+          </Text>
+          <Text style={{ color: C.ink0, fontSize: 22, fontWeight: "900", letterSpacing: -0.7, lineHeight: 26, marginTop: 4 }} numberOfLines={2}>
+            {title}
+          </Text>
+          {lift && (
+            <>
+              <Text style={[mono, { color: C.gold, fontSize: 38, fontWeight: "900", letterSpacing: -1.4, marginTop: 10 }]}>
+                {lift.weight} kg × {lift.reps}
+              </Text>
+              <Text style={{ color: C.ink1, fontSize: 13.5, fontWeight: "600", marginTop: 2 }}>{lift.exName}</Text>
+            </>
+          )}
+          {stats && (
+            <View style={{ flexDirection: "row", gap: 16, marginTop: 12 }}>
+              {!!stats.durationSec && (
+                <View>
+                  <Text style={[mono, { color: C.ink0, fontSize: 19, fontWeight: "800" }]}>{formatDur(stats.durationSec)}</Text>
+                  <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>durée</Text>
+                </View>
+              )}
+              {!!stats.tonnage && (
+                <View>
+                  <Text style={[mono, { color: C.ink0, fontSize: 19, fontWeight: "800" }]}>{formatNum(stats.tonnage / 1000, 1)} t</Text>
+                  <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>volume</Text>
+                </View>
+              )}
+              {!!stats.prs && (
+                <View>
+                  <Text style={[mono, { color: C.gold, fontSize: 19, fontWeight: "800" }]}>{stats.prs}</Text>
+                  <Text style={{ color: C.gold, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                    PR{stats.prs > 1 ? "s" : ""}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+          {prList.length > 0 && (
+            <View style={{ marginTop: 10, gap: 3 }}>
+              {prList.slice(0, 2).map((pr, i) => (
+                <Text key={i} style={[mono, { color: C.gold, fontSize: 12.5, fontWeight: "800" }]}>
+                  🏆 {pr.exName} · {pr.weight}×{pr.reps}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    </ViewShot>
+  );
+}
+
 export function ComposePost({ open, onClose, draft, onPublished }: { open: boolean; onClose: () => void; draft: PostDraft | null; onPublished?: (id: string) => void }) {
   const { userId } = useData();
   const [title, setTitle] = useState<string | null>(null);
@@ -114,6 +184,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
   const shotRef = useRef(null);
+  const stickerRef = useRef(null);
   const [storyFormat, setStoryFormat] = useState(true);
 
   if (!draft) return null;
@@ -165,9 +236,19 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
   const exportInstagram = async (story: boolean) => {
     setStoryFormat(story);
     haptic("light");
-    // Laisse le ShareCard se re-rendre au bon format avant capture
+    // Laisse les vues off-screen se re-rendre au bon format avant capture
     await new Promise((r) => setTimeout(r, 80));
     try {
+      if (story) {
+        // 1. Tentative DIRECTE : sticker transparent posé dans l'éditeur de
+        // story Instagram (build EAS + Instagram installé). En Expo Go ou
+        // sans Instagram → false, on retombe sur le share sheet générique.
+        const stickerUri = await captureRef(stickerRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
+        if (await shareStickerToInstagramStories(stickerUri)) {
+          haptic("success");
+          return;
+        }
+      }
       const uri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: story ? 1920 : 1080 });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Exporter vers Instagram" });
@@ -186,8 +267,9 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
       }}
       title={published ? "Publié ✓" : draft.type === "lift" ? "Partager ce lift" : "Partager la séance"}
     >
-      {/* ShareCard hors écran, prêt pour la capture */}
+      {/* Vues hors écran, prêtes pour la capture */}
       <ShareCard draft={draft} title={effTitle} story={storyFormat} shotRef={shotRef} />
+      <StickerCard draft={draft} title={effTitle} shotRef={stickerRef} />
 
       {!published ? (
         <View>
@@ -267,7 +349,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           </Text>
           <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
             <Btn kind="gold" onPress={() => exportInstagram(true)} style={{ flex: 1 }}>
-              Story 9:16
+              Story Instagram
             </Btn>
             <Btn kind="gold" onPress={() => exportInstagram(false)} style={{ flex: 1 }}>
               Post carré

@@ -29,6 +29,9 @@ export const L = {
   goldWash: "rgba(255,194,51,.14)",
   successWash: "rgba(47,210,125,.12)",
   dangerWash: "rgba(255,59,72,.12)",
+  // Scrim du sticker story Instagram : voile sombre léger derrière le texte
+  // pour rester lisible posé sur n'importe quelle photo (base bg0)
+  scrim: "rgba(5,5,9,.55)",
 };
 
 // Motion — équivalents natifs des tokens --t-*/--ease-* de la v40.
