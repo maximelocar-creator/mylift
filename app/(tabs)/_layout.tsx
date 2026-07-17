@@ -1,6 +1,6 @@
 // Barre d'onglets v40 : Dashboard · Journal · Progrès · Pesée · Réglages
 // + bandeau persistant "Séance en cours" (visible partout sauf Journal).
-import { Tabs, useRouter, usePathname } from "expo-router";
+import { Tabs, useRouter, usePathname, Redirect } from "expo-router";
 import { View, Text, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { C } from "@/lib/theme";
 import { LINE } from "@/ui/kit";
 import { useActiveSession } from "@/lib/activeSession";
+import { useData } from "@/lib/store";
 import { useSocial } from "@/lib/social";
 import { pad2 } from "@/lib/format";
 
@@ -31,7 +32,14 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const { activeSession } = useActiveSession();
   const { incoming } = useSocial();
+  const { ready, profile } = useData();
   const showBanner = !!activeSession && !pathname.startsWith("/journal");
+
+  // Compte neuf sans profil → onboarding guidé (jamais l'écran d'import,
+  // qui reste l'outil interne accessible via le lien discret du login)
+  if (ready && !profile?.username) {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
