@@ -267,6 +267,38 @@ la Phase 2, pas de maintenant.
   chaque table avec owner_id a bien un ON DELETE CASCADE, déjà le cas dans
   le schéma), export de données personnelles sur demande
 - Modération de base : signalement de post/commentaire, table et flux minimal
+**Live Activities (Dynamic Island + écran verrouillé)** — nécessite du code
+natif iOS (ActivityKit / WidgetKit), donc un build EAS custom, impossible en
+Expo Go. C'est la raison pour laquelle c'est en Phase 5 et pas avant. Pendant
+une séance active :
+
+- La bannière "séance en cours" de l'app (celle qui vit dans le layout en
+  Phase 1) devient une Live Activity dès qu'une séance démarre. Elle vit dans
+  la Dynamic Island quand l'app est au premier plan ou en arrière-plan.
+- Timer de repos en direct dans la Dynamic Island : le décompte tourne en
+  temps réel affiché dans l'île, et surtout il continue de tourner et de
+  s'afficher même si Maxime quitte l'app (verrouille son téléphone, passe sur
+  une autre app, coupe la musique, etc.). C'est tout l'intérêt : ne jamais
+  perdre le timer de repos de vue pendant qu'on fait autre chose entre deux
+  séries.
+- Tap sur la Dynamic Island (vue compacte ou étendue) = retour direct dans
+  l'app, sur l'écran de séance live en cours.
+- Écran verrouillé : la Live Activity affiche le timer de repos en direct +
+  le nom de l'exercice en cours + le poids cible de la série à venir. Maxime
+  doit pouvoir jeter un œil à son iPhone posé sur le banc, écran verrouillé,
+  et voir combien de temps de repos il reste et quel est le prochain mouvement
+  sans déverrouiller.
+- État de repli (device sans Dynamic Island, ou Live Activity non
+  supportée) : dégrader proprement vers une notification classique persistante
+  avec le timer, jamais un crash ni une absence totale de feedback hors app.
+
+Contrainte technique : ActivityKit impose que le contenu de la Live Activity
+soit poussé/mis à jour depuis l'app ; le timer doit utiliser le rendu de date
+natif d'iOS (Text avec timer style) pour décompter tout seul côté système sans
+réveiller l'app en permanence — ne pas tenter de mettre à jour le compte à
+rebours seconde par seconde depuis le JS, ça ne survivrait pas à la mise en
+arrière-plan.
+
 - Assets App Store : icône définitive, screenshots par taille d'écran
   requise, description, mots-clés, politique de confidentialité hébergée
 - Build EAS de production (bundleIdentifier déjà fixé : com.maxime.mylift)
