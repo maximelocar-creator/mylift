@@ -3,7 +3,7 @@
 // src/core/mylift.ts. Les écritures enfilent une op de sync dans la même
 // transaction (voir sync.ts pour le push vers Supabase).
 import { getDb } from "./local";
-import type { Any } from "../core/mylift";
+import { MUSCLE_GROUPS_DEFAULT, SUB_GROUPS_DEFAULT, type Any } from "../core/mylift";
 
 export const uid = () => "id-" + Math.random().toString(36).slice(2, 9) + "-" + Date.now();
 
@@ -578,6 +578,32 @@ export async function deleteProgram(programId: string): Promise<void> {
 /* Contrainte v2 : les exos seed sont globaux (non modifiables par     */
 /* RLS) — rename/delete de groupe refusés s'il contient des seeds.     */
 /* ------------------------------------------------------------------ */
+
+/** Compte NEUF : matérialise la taxonomie par défaut (groupes + sous-groupes
+ *  de la v40) pour que le générateur et les cibles de volume aient une base.
+ *  À n'appeler qu'après un pull confirmé — un serveur vraiment vide, pas un
+ *  cache local pas encore hydraté (sinon on dupliquerait chez un utilisateur
+ *  existant sur un nouveau device). */
+export async function seedDefaultTaxonomyIfEmpty(userId: string): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM muscle_groups");
+  if ((row?.n ?? 0) > 0) return false;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    for (let i = 0; i < MUSCLE_GROUPS_DEFAULT.length; i++) {
+      const name = MUSCLE_GROUPS_DEFAULT[i];
+      await tx.runAsync("INSERT OR REPLACE INTO muscle_groups (owner_id, name, position) VALUES (?,?,?)", [userId, name, i]);
+      await enqueue(tx as any, "muscle_groups", "upsert", { owner_id: userId, name }, { owner_id: userId, name, position: i });
+    }
+    for (const [group, subs] of Object.entries(SUB_GROUPS_DEFAULT)) {
+      for (let i = 0; i < subs.length; i++) {
+        const name = subs[i];
+        await tx.runAsync("INSERT OR REPLACE INTO sub_groups (owner_id, muscle_group, name, position) VALUES (?,?,?,?)", [userId, group, name, i]);
+        await enqueue(tx as any, "sub_groups", "upsert", { owner_id: userId, muscle_group: group, name }, { owner_id: userId, muscle_group: group, name, position: i });
+      }
+    }
+  });
+  return true;
+}
 
 export async function addMuscleGroup(userId: string, name: string): Promise<void> {
   const db = await getDb();

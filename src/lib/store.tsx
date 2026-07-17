@@ -101,12 +101,15 @@ export function DataProvider({ userId, children }: { userId: string | null; chil
     setSyncing(true);
     try {
       const { pulled } = await syncNow();
-      if (pulled) await loadFromLocal();
-      else setPendingSync(await pendingSyncCount());
+      if (pulled) {
+        // Serveur confirmé vide de taxonomie = compte neuf → groupes par défaut
+        if (userId && (await repo.seedDefaultTaxonomyIfEmpty(userId))) await syncNow();
+        await loadFromLocal();
+      } else setPendingSync(await pendingSyncCount());
     } finally {
       if (mounted.current) setSyncing(false);
     }
-  }, [loadFromLocal]);
+  }, [loadFromLocal, userId]);
 
   useEffect(() => {
     mounted.current = true;

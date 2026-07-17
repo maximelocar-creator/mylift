@@ -37,12 +37,14 @@ export default function Onboarding() {
   const data = useData();
   const { userId, profile, programs, ready } = data;
 
-  // L'étape découle de l'état réel : pas de profil → étape 1, sinon étape 2.
+  // L'étape découle de l'état réel : pas de profil → 1, pas de programme → 2,
+  // programme créé → 3 (bienvenue + amis).
   const hasProfile = !!profile?.username;
-  const [step, setStep] = useState<1 | 2>(hasProfile ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(hasProfile ? (programs.length > 0 ? 3 : 2) : 1);
   useEffect(() => {
     if (hasProfile && step === 1) setStep(2);
-  }, [hasProfile]);
+    if (hasProfile && programs.length > 0 && step === 2) setStep(3);
+  }, [hasProfile, programs.length]);
 
   // --- Étape 1 : profil ---
   const [username, setUsername] = useState("");
@@ -132,7 +134,7 @@ export default function Onboarding() {
             Bienvenue sur My<Text style={{ color: C.accent }}>Lift</Text>
           </Text>
           <View style={{ flexDirection: "row", gap: 6, marginTop: 16, marginBottom: 28 }}>
-            {[1, 2].map((i) => (
+            {[1, 2, 3].map((i) => (
               <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= step ? C.accent : C.bg3 }} />
             ))}
           </View>
@@ -269,15 +271,45 @@ export default function Onboarding() {
               </Text>
             </Pressable>
 
-            {programs.length > 0 ? (
-              <Btn full onPress={() => router.replace("/")}>
-                C'est parti →
-              </Btn>
-            ) : (
-              <Pressable onPress={() => router.replace("/")} style={{ minHeight: 44, justifyContent: "center" }}>
-                <Text style={{ color: C.ink3, textAlign: "center", fontSize: 13 }}>Plus tard — explorer l'app d'abord</Text>
-              </Pressable>
-            )}
+            <Pressable onPress={() => router.replace("/")} style={{ minHeight: 44, justifyContent: "center" }}>
+              <Text style={{ color: C.ink3, textAlign: "center", fontSize: 13 }}>Plus tard — explorer l'app d'abord</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {step === 3 && (
+          <Animated.View entering={FadeIn.duration(MOTION.view)}>
+            <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: C.ink0, marginBottom: 4 }}>Bienvenue, @{profile?.username} !</Text>
+            <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 24, lineHeight: 19 }}>
+              Ton programme <Text style={{ fontWeight: "700", color: C.ink1 }}>{programs[0]?.name}</Text> est prêt. Dernière chose : MyLift est plus motivant
+              à plusieurs — retrouve tes amis pour voir leurs séances et leurs PRs.
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                haptic("light");
+                router.push("/search");
+              }}
+              style={({ pressed }) => ({
+                padding: 20,
+                borderRadius: 18,
+                backgroundColor: pressed ? L.bgHover : C.bg2,
+                borderWidth: 1,
+                borderColor: "rgba(252,76,2,.35)",
+                marginBottom: 20,
+              })}
+            >
+              <Text style={{ fontSize: 26, marginBottom: 8 }}>👥</Text>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink0 }}>Ajouter des amis</Text>
+              <Text style={{ fontSize: 13, color: C.ink2, marginTop: 4, lineHeight: 18 }}>
+                Cherche-les par username et envoie une demande. Tu pourras aussi te faire scanner via ton QR code, sur ton profil.
+              </Text>
+            </Pressable>
+
+            <Btn full onPress={() => router.replace("/")}>
+              C'est parti →
+            </Btn>
           </Animated.View>
         )}
 
