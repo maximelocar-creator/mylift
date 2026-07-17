@@ -137,7 +137,7 @@ export default function Profil() {
           {listRows.map((r: Any) => {
             const otherId = listOpen === "followers" ? r.follower_id : r.following_id;
             return (
-              <View key={otherId} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, backgroundColor: C.bg3, borderRadius: 12 }}>
+              <View key={`${r.follower_id}-${r.following_id}`} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, backgroundColor: C.bg3, borderRadius: 12 }}>
                 <Pressable
                   onPress={() => {
                     setListOpen(null);

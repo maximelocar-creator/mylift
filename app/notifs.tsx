@@ -69,7 +69,7 @@ export default function Notifs() {
           <View style={{ gap: 6 }}>
             {incoming.map((r: Any) => (
               <View
-                key={r.follower_id}
+                key={`${r.follower_id}-${r.following_id}`}
                 style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16 }}
               >
                 <Pressable onPress={() => router.push(`/user/${r.follower_id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
@@ -117,7 +117,7 @@ export default function Notifs() {
           <View style={{ gap: 6 }}>
             {outgoing.map((r: Any) => (
               <View
-                key={r.following_id}
+                key={`${r.follower_id}-${r.following_id}`}
                 style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 16 }}
               >
                 <Pressable onPress={() => router.push(`/user/${r.following_id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
