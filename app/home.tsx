@@ -6,11 +6,14 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/lib/supabase";
 import { importBackup, ImportResult } from "@/db/importBackup";
+import { syncNow } from "@/db/sync";
+import { useData } from "@/lib/store";
 import { C, R, mono } from "@/lib/theme";
 
 type Profile = { id: string; username: string; current_program_id: string | null };
 
 export default function Home() {
+  const data = useData();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState("");
@@ -66,6 +69,11 @@ export default function Home() {
       const res = await importBackup(backup, userId, setStepMsg);
       setResult(res);
       await loadState(userId);
+      // Redescend l'état serveur dans SQLite puis rafraîchit le store :
+      // les données importées apparaissent immédiatement dans l'app.
+      setStepMsg("Synchronisation locale…");
+      await syncNow();
+      await data.reload();
     } catch (e: any) {
       setErr(e.message ?? String(e));
     } finally {
