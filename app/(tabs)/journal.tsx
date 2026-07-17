@@ -11,7 +11,7 @@ import { useData } from "@/lib/store";
 import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
 import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } from "@/lib/format";
-import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH, SyncDot } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
 import { haptic } from "@/lib/haptics";
@@ -333,7 +333,10 @@ export default function Journal() {
             </Pressable>
           )}
         </View>
-        <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Prochaine séance.</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>Prochaine séance.</Text>
+          <SyncDot />
+        </View>
       </View>
 
       {!currentProgram && (

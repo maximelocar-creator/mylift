@@ -403,14 +403,36 @@ Restent : likes/commentaires = Phase 4 (rien d'autre en 3).
   image par post).
 
 ### Phase 4 — Interactions sociales
-- Likes sur posts (visibles uniquement si le post l'est selon RLS)
-- Commentaires (≤500 caractères)
-- Notifications : nouveau follower, follow accepté, like, commentaire — table
-  notifications déjà en place en Phase 0, à câbler côté UI + déclenchement
-- Notifications PUSH (expo-notifications) : demandé par Maxime — pas d'onglet
-  dédié, l'accès in-app est la cloche + badge sur le header du Feed (fait en
-  Phase 2) ; le push distant exige un build EAS (device token APNs), à câbler
-  avec le premier build custom
+ÉTAT : FAIT (in-app) — RLS sondée en prod avant de coder :
+- likes(post_id, user_id, created_at) et comments(id text client, post_id,
+  user_id, text CHECK ≤500) : usurpation bloquée, le owner d'un post voit
+  ses likes/commentaires même sans lien sortant, delete uniquement sur SES
+  lignes (pas de modération par le owner du post).
+- Table notifications : INSERT REFUSÉ à tout client (même pour soi —
+  policy fermée, prévue pour des triggers serveur). NE PAS contourner :
+  les notifs in-app sont DÉRIVÉES à la lecture (src/lib/notifs.ts, point
+  d'entrée unique) depuis likes/comments sur mes posts + amitiés établies ;
+  lu/non-lu local au device ; badge Feed = demandes pending + non-lus.
+- Likes : SocialRow dans PostCard (partout), optimistic + rollback.
+- Commentaires : section sur app/post/[id].tsx (saisie au-dessus du
+  clavier, compteur 500, suppression du sien).
+- Suggestions d'amis (Recherche) : la RLS follows ne montre que SES
+  liens → calcul serveur via supabase/friend_suggestions.sql (SECURITY
+  DEFINER, ids publics + compteur, jamais de listes brutes) — À APPLIQUER
+  PAR MAXIME dans le dashboard ; le client la détecte et masque la
+  section tant qu'elle n'existe pas.
+- Story Instagram directe : sticker PNG transparent (StickerCard,
+  ComposePost) via react-native-share (require paresseux try/catch —
+  jette dans Expo Go, autolinked au build EAS), schéma déclaré dans
+  app.json (LSApplicationQueriesSchemes). Fallback share sheet toujours.
+  PROD/BUILD : META_APP_ID (src/lib/instagram.ts) à créer sur
+  developers.facebook.com avant le build EAS.
+
+Restait de la spec d'origine :
+- Notifications PUSH (expo-notifications) : PROD/BUILD — exige build EAS
+  (token APNs) + triggers serveur pour remplir notifications ; le point
+  d'entrée client existe (notifs.registerForPushIfBuilt, inerte en Expo
+  Go), rien d'autre à préparer côté app
 
 ### Phase 5 — Mise en production
 - Conformité RGPD : suppression de compte en cascade complète (vérifier que

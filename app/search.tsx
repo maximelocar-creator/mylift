@@ -155,6 +155,16 @@ export default function Search() {
           </View>
         )}
 
+        {q.trim().length < 2 && (suggestions === null || suggestions.length === 0) && (
+          <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
+            <Text style={{ fontSize: 36 }}>👥</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink1 }}>Trouve tes amis</Text>
+            <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", lineHeight: 18 }}>
+              Cherche un username, ou fais-toi scanner : ton QR code est sur ton profil.
+            </Text>
+          </View>
+        )}
+
         {q.trim().length >= 2 && !searching && results.length === 0 && (
           <Text style={{ color: C.ink3, textAlign: "center", padding: 24 }}>Aucun utilisateur pour « {q.trim()} »</Text>
         )}

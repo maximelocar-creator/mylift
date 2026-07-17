@@ -14,7 +14,7 @@ import { C, R, L, mono } from "@/lib/theme";
 import { haptic } from "@/lib/haptics";
 import { useData } from "@/lib/store";
 import { programVolume, splitVolumeBySubGroups, computeVolumeTargets, validateMuscleStatus, SUB_GROUPS_DEFAULT, type Any } from "@/core/mylift";
-import { Sheet, ConfirmSheet, Btn, Chip, Label, PickerSheet, ScreenSkeleton } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Btn, Chip, Label, PickerSheet, ScreenSkeleton, SyncDot } from "@/ui/kit";
 import { uid } from "@/db/repo";
 
 /* ------------------------------------------------------------------ */
@@ -394,10 +394,13 @@ export default function ProgramEditor() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg0 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }} keyboardShouldPersistTaps="handled">
       {/* Retour */}
-      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 14, minHeight: 44 }}>
-        <Ionicons name="chevron-back" size={16} color={C.ink2} />
-        <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Réglages</Text>
-      </Pressable>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, minHeight: 44 }}>
+          <Ionicons name="chevron-back" size={16} color={C.ink2} />
+          <Text style={{ color: C.ink2, fontSize: 13, fontWeight: "600" }}>Réglages</Text>
+        </Pressable>
+        <SyncDot />
+      </View>
 
       {/* Nom + actions */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
