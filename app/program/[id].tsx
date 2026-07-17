@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, R, L, mono } from "@/lib/theme";
 import { haptic } from "@/lib/haptics";
 import { useData } from "@/lib/store";
-import { programVolume, splitVolumeBySubGroups, SUB_GROUPS_DEFAULT, type Any } from "@/core/mylift";
+import { programVolume, splitVolumeBySubGroups, computeVolumeTargets, validateMuscleStatus, SUB_GROUPS_DEFAULT, type Any } from "@/core/mylift";
 import { Sheet, ConfirmSheet, Btn, Chip, Label, PickerSheet, ScreenSkeleton } from "@/ui/kit";
 import { uid } from "@/db/repo";
 
@@ -282,6 +282,8 @@ export default function ProgramEditor() {
   const [delExoOpen, setDelExoOpen] = useState<Any | null>(null);
   const [moveToSessionFor, setMoveToSessionFor] = useState<Any | null>(null);
   const [editVariantsFor, setEditVariantsFor] = useState<{ sid: string; exIdx: number } | null>(null);
+  const [editStatusOpen, setEditStatusOpen] = useState(false);
+  const [statusSel, setStatusSel] = useState<Record<string, string>>({});
 
   const pv = useMemo(() => programVolume(program, exerciseLib), [program, exerciseLib]);
   const targets: Record<string, number> = program?.volumeTargets?.program || {};
@@ -442,9 +444,9 @@ export default function ProgramEditor() {
         </Pressable>
       </View>
 
-      {/* Meta programme auto */}
-      {program.auto && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginBottom: 14 }}>
+      {/* Meta + focus muscles */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, flex: 1, minWidth: 0 }}>
           {!!program.level && <Chip>{program.level}</Chip>}
           {!!program.frequency && <Chip>{program.frequency}x/sem</Chip>}
           {(program.muscleStatus
@@ -458,7 +460,25 @@ export default function ProgramEditor() {
             </Chip>
           ))}
         </View>
-      )}
+        <Btn
+          kind="ghost"
+          sm
+          onPress={() => {
+            // Restaure depuis muscleStatus, sinon priorities (legacy), sinon maintenance partout (port v40)
+            const init: Record<string, string> = {};
+            if (program.muscleStatus && Object.keys(program.muscleStatus).length) {
+              Object.assign(init, program.muscleStatus);
+            } else {
+              muscleGroups.forEach((g) => (init[g] = "maintenance"));
+              (program.priorities || []).forEach((g: string) => (init[g] = "focus"));
+            }
+            setStatusSel(init);
+            setEditStatusOpen(true);
+          }}
+        >
+          ★ Focus muscles
+        </Btn>
+      </View>
 
       {/* Volume programme */}
       {groupsWithActivity.length > 0 && (
@@ -991,6 +1011,89 @@ export default function ProgramEditor() {
             </View>
           </View>
         )}
+      </Sheet>
+
+      {/* Statut par muscle (port EditMuscleStatusSheet v40) */}
+      <Sheet open={editStatusOpen} onClose={() => setEditStatusOpen(false)} title="Statut par muscle">
+        <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 12 }}>
+          <Text style={{ color: C.accent, fontWeight: "700" }}>★ Focus</Text> +50% · <Text style={{ color: C.ink1 }}>↑ Progression</Text> baseline ·{" "}
+          <Text style={{ color: C.ink3 }}>= Maintenance</Text> 60%
+        </Text>
+        <View style={{ gap: 4, marginBottom: 10 }}>
+          {muscleGroups.map((g) => {
+            const v = statusSel[g] || "progression";
+            return (
+              <View
+                key={g}
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: C.bg3, minHeight: 48 }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "700", color: C.ink0 }}>{g}</Text>
+                <View style={{ flexDirection: "row", gap: 3 }}>
+                  {([["maintenance", "="], ["progression", "↑"], ["focus", "★"]] as const).map(([val, icon]) => {
+                    const active = v === val;
+                    const col = val === "focus" ? C.accent : val === "maintenance" ? C.ink3 : C.ink1;
+                    const bg = !active ? C.bg2 : val === "focus" ? L.accentWash : val === "maintenance" ? "rgba(120,120,130,.15)" : L.successWash;
+                    return (
+                      <Pressable
+                        key={val}
+                        onPress={() => {
+                          haptic("light");
+                          setStatusSel({ ...statusSel, [g]: val });
+                        }}
+                        style={{
+                          minWidth: 36,
+                          minHeight: 36,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 6,
+                          backgroundColor: bg,
+                          borderWidth: 1,
+                          borderColor: active ? col + "40" : "transparent",
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: "800", color: active ? col : C.ink3 }}>{icon}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+        {(() => {
+          const validation = validateMuscleStatus({
+            muscleStatus: statusSel,
+            frequency: program.frequency || 4,
+            level: program.level || "intermediaire",
+            muscleGroups,
+          });
+          if (!validation.warnings.length) return null;
+          return (
+            <View style={{ padding: 10, backgroundColor: "rgba(255,204,0,.1)", borderWidth: 1, borderColor: "rgba(255,204,0,.3)", borderRadius: 8, marginBottom: 10 }}>
+              {validation.warnings.map((w: string, i: number) => (
+                <Text key={i} style={{ fontSize: 11, color: C.ink1, lineHeight: 15, marginBottom: i < validation.warnings.length - 1 ? 4 : 0 }}>
+                  ⚠ {w}
+                </Text>
+              ))}
+            </View>
+          );
+        })()}
+        <Btn
+          full
+          onPress={async () => {
+            // Port v40 onSave : recompute des cibles de volume depuis le statut
+            const newTargets = computeVolumeTargets({ level: program.level, muscleStatus: statusSel, muscleGroups });
+            await update((p) => {
+              p.muscleStatus = statusSel;
+              p.volumeTargets = p.volumeTargets || { program: {}, sessions: {} };
+              p.volumeTargets.program = newTargets;
+            });
+            setEditStatusOpen(false);
+            haptic("success");
+          }}
+        >
+          ✓ Enregistrer
+        </Btn>
       </Sheet>
 
       {/* Confirmations */}

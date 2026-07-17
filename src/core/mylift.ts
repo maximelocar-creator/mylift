@@ -698,3 +698,22 @@ export function computeVolumeTargets({ level = 'intermediaire', muscleStatus, fo
   });
   return targets;
 }
+
+// Avertissements si config peu réaliste (Helms/Norton) — port fidèle v40
+export function validateMuscleStatus({ muscleStatus, frequency, level, muscleGroups }: Any) {
+  const groups = muscleGroups || Object.keys(BASE_VOLUME);
+  const focusCount = groups.filter((g: string) => muscleStatus?.[g] === 'focus').length;
+  const warnings: string[] = [];
+  const focusCap = frequency <= 3 ? 2 : frequency <= 5 ? 3 : 4;
+  if (focusCount > focusCap) {
+    warnings.push(`${focusCount} muscles en focus simultanés — au-delà de ${focusCap} le MRV sera dépassé. Passe les moins prioritaires en "progression".`);
+  }
+  const targets = computeVolumeTargets({ level, muscleStatus, muscleGroups: groups });
+  const totalSets = Object.values(targets).reduce((a: number, v: any) => a + v, 0);
+  const MAX_SETS_PER_SESSION = 24;
+  const weeklyCap = frequency * MAX_SETS_PER_SESSION;
+  if (totalSets > weeklyCap * 1.1) {
+    warnings.push(`Volume total (${totalSets} séries/sem) dépasse la capacité de ${frequency} séances. Augmente la fréquence ou passe des muscles en "maintenance".`);
+  }
+  return { warnings, focusCount, totalSets, weeklyCap };
+}
