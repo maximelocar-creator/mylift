@@ -3,7 +3,14 @@
 // points PR, scrubber tactile (drag pour lire une valeur).
 import { useMemo, useState } from "react";
 import { View, Text, LayoutChangeEvent, GestureResponderEvent } from "react-native";
+import Animated, { FadeInDown, FadeOut } from "react-native-reanimated";
 import Svg, { Path, Line, Circle, Rect } from "react-native-svg";
+import { MOTION } from "../lib/theme";
+
+// Transition de période façon Revolut : l'ancien jeu de points sort en fondu,
+// le nouveau entre en fondu + léger lift, ~220 ms (MOTION.local).
+const chartEnter = () => FadeInDown.duration(MOTION.local).springify().damping(26);
+const chartExit = () => FadeOut.duration(MOTION.micro);
 import { C, mono } from "../lib/theme";
 import { formatNum, formatDate } from "../lib/format";
 
@@ -56,7 +63,7 @@ export function IndexChart({ raw, smooth, baseline = 100, unit = "indice" }: { r
       style={{ height: H + 26 }}
     >
       {geom && (
-        <>
+        <Animated.View key={smooth.length + ":" + (smooth[0]?.date || "") + ":" + (smooth[smooth.length - 1]?.date || "")} entering={chartEnter()} exiting={chartExit()}>
           <Svg width={width} height={H}>
             {/* Baseline (100 pour les indices) */}
             {geom.baselineY !== null && (
@@ -91,7 +98,7 @@ export function IndexChart({ raw, smooth, baseline = 100, unit = "indice" }: { r
               </>
             )}
           </View>
-        </>
+        </Animated.View>
       )}
     </View>
   );
@@ -144,7 +151,7 @@ export function E1RMChart({ points }: { points: { date: string; value: number; k
       style={{ height: H + 26 }}
     >
       {geom && (
-        <>
+        <Animated.View key={points.length + ":" + points[0].date + ":" + points[points.length - 1].date} entering={chartEnter()} exiting={chartExit()}>
           <Svg width={width} height={H}>
             <Path
               d={buildPath(geom.smoothM) + ` L${geom.smoothM[geom.smoothM.length - 1].x},${H} L${geom.smoothM[0].x},${H} Z`}
@@ -174,7 +181,7 @@ export function E1RMChart({ points }: { points: { date: string; value: number; k
               </>
             )}
           </View>
-        </>
+        </Animated.View>
       )}
     </View>
   );
@@ -207,7 +214,7 @@ export function TonnageBars({ points, height = 120 }: { points: Pt[]; height?: n
       style={{ height: height + 22 }}
     >
       {width > 0 && (
-        <>
+        <Animated.View key={points.length + ":" + (points[0]?.date || "") + ":" + (points[points.length - 1]?.date || "")} entering={chartEnter()} exiting={chartExit()}>
           <Svg width={width} height={height}>
             {points.map((p, i) => {
               const h = Math.max(3, (p.value / max) * (height - 8));
@@ -237,7 +244,7 @@ export function TonnageBars({ points, height = 120 }: { points: Pt[]; height?: n
               </>
             )}
           </View>
-        </>
+        </Animated.View>
       )}
     </View>
   );

@@ -35,6 +35,10 @@ export default function RootLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: C.bg0 },
+        // Push/pop iOS natif + swipe-back depuis tout l'écran
+        animation: "default",
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
       }}
     >
       <Stack.Protected guard={!!session}>
