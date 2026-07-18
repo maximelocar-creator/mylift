@@ -45,7 +45,8 @@
         }
       ],
       "expo-apple-authentication",
-      "expo-live-activity"
+      "expo-live-activity",
+      "@kingstinct/react-native-healthkit"
     ],
     "extra": {
       "router": {},

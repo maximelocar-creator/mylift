@@ -33,13 +33,17 @@ export async function setHealthEnabled(uid: string, on: boolean): Promise<void> 
 }
 
 const IN_EXPO_GO = Constants.appOwnership === "expo";
+const BODY_MASS = "HKQuantityTypeIdentifierBodyMass" as const;
 
+// Backend : @kingstinct/react-native-healthkit (Nitro modules, natif pour la
+// nouvelle architecture RN). L'ancien react-native-health compilait mais ne
+// se bridgait PAS sous bridgeless — « indisponible » constaté sur device.
 function loadHealthKit(): Any | null {
   if (IN_EXPO_GO || Platform.OS !== "ios") return null;
   try {
-    const mod = require("react-native-health");
-    const hk = mod?.default ?? mod;
-    return hk && typeof hk.initHealthKit === "function" ? hk : null;
+    const hk = require("@kingstinct/react-native-healthkit");
+    if (typeof hk?.isHealthDataAvailable !== "function") return null;
+    return hk.isHealthDataAvailable() ? hk : null;
   } catch {
     return null;
   }
@@ -50,61 +54,50 @@ export function healthAvailable(): boolean {
 }
 
 /** Demande la permission Santé (lecture + écriture du poids). true si ok. */
-export function initHealth(): Promise<boolean> {
+export async function initHealth(): Promise<boolean> {
   const hk = loadHealthKit();
-  if (!hk) return Promise.resolve(false);
-  const perms = {
-    permissions: {
-      read: [hk.Constants.Permissions.Weight],
-      write: [hk.Constants.Permissions.Weight],
-    },
-  };
-  return new Promise((resolve) => {
-    try {
-      hk.initHealthKit(perms, (err: Any) => resolve(!err));
-    } catch {
-      resolve(false);
-    }
-  });
+  if (!hk) return false;
+  try {
+    return !!(await hk.requestAuthorization({ toShare: [BODY_MASS], toRead: [BODY_MASS] }));
+  } catch {
+    return false;
+  }
 }
 
 /** Poids Santé des `days` derniers jours — dernier échantillon par jour, kg. */
-export function readHealthWeights(days = 365): Promise<Array<{ date: string; weight: number }>> {
+export async function readHealthWeights(days = 365): Promise<Array<{ date: string; weight: number }>> {
   const hk = loadHealthKit();
-  if (!hk) return Promise.resolve([]);
-  const start = new Date(Date.now() - days * 86400_000).toISOString();
-  return new Promise((resolve) => {
-    try {
-      hk.getWeightSamples({ unit: "gram", startDate: start, ascending: true }, (err: Any, results: Any[]) => {
-        if (err || !Array.isArray(results)) return resolve([]);
-        const byDay: Record<string, number> = {};
-        for (const s of results) {
-          const day = String(s.startDate ?? "").slice(0, 10);
-          const kg = Math.round((Number(s.value) / 1000) * 10) / 10;
-          if (day && kg > 0) byDay[day] = kg; // ascending → le dernier du jour gagne
-        }
-        resolve(Object.entries(byDay).map(([date, weight]) => ({ date, weight })));
-      });
-    } catch {
-      resolve([]);
+  if (!hk) return [];
+  try {
+    const samples: Any[] = await hk.queryQuantitySamples(BODY_MASS, {
+      limit: 0, // tout
+      ascending: true,
+      unit: "kg",
+      filter: { startDate: new Date(Date.now() - days * 86400_000) },
+    });
+    const byDay: Record<string, number> = {};
+    for (const s of samples || []) {
+      const day = new Date(s.startDate).toISOString().slice(0, 10);
+      const kg = Math.round(Number(s.quantity) * 10) / 10;
+      if (day && kg > 0) byDay[day] = kg; // ascending → le dernier du jour gagne
     }
-  });
+    return Object.entries(byDay).map(([date, weight]) => ({ date, weight }));
+  } catch {
+    return [];
+  }
 }
 
-/** Écrit une pesée MyLift dans Santé (grammes, datée midi pour rester ce jour-là). */
-export function writeHealthWeight(weightKg: number, dateIso: string): Promise<boolean> {
+/** Écrit une pesée MyLift dans Santé (kg, datée midi pour rester ce jour-là). */
+export async function writeHealthWeight(weightKg: number, dateIso: string): Promise<boolean> {
   const hk = loadHealthKit();
-  if (!hk) return Promise.resolve(false);
-  return new Promise((resolve) => {
-    try {
-      hk.saveWeight(
-        { value: Math.round(weightKg * 1000), unit: "gram", startDate: new Date(dateIso + "T12:00:00").toISOString() },
-        (err: Any) => resolve(!err)
-      );
-    } catch {
-      resolve(false);
-    }
-  });
+  if (!hk) return false;
+  try {
+    const at = new Date(dateIso + "T12:00:00");
+    const saved = await hk.saveQuantitySample(BODY_MASS, "kg", weightKg, at, at);
+    return !!saved;
+  } catch {
+    return false;
+  }
 }
 
 /** Sync complète (appelée à l'ouverture de l'écran Pesée sur build natif).
