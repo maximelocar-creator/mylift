@@ -17,6 +17,7 @@ import { useData } from "../lib/store";
 import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
 import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
+import { updateRestTimer, clearRestTimer } from "../lib/liveActivity";
 
 /* ==================================================================== */
 /* Chrono global de séance                                              */
@@ -395,6 +396,9 @@ export default function SessionLive({
     timerStartRef.current = Date.now();
     setTimerRunning(true);
     persistTimer({ startedAt: timerStartRef.current, accum: timerAccumRef.current, target: timerTarget });
+    // Live Activity : décompte système jusqu'à la fin du repos restant
+    const remaining = Math.max(0, timerTarget - timerAccumRef.current);
+    updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000);
   };
   const stopTimer = () => {
     if (timerStartRef.current) {
@@ -403,6 +407,7 @@ export default function SessionLive({
     timerStartRef.current = null;
     setTimerRunning(false);
     persistTimer({ startedAt: null, accum: timerAccumRef.current, target: timerTarget });
+    clearRestTimer(currentExo?.exName);
   };
   const resetTimer = () => {
     haptic("light");
@@ -412,12 +417,19 @@ export default function SessionLive({
     setTimerTarget(120);
     setTimerRunning(false);
     persistTimer({ startedAt: null, accum: 0, target: 120 });
+    clearRestTimer(currentExo?.exName);
   };
   const addRestTime = () => {
     haptic("light");
     setTimerTarget((t: number) => {
       const next = t + 30;
       persistTimer({ target: next });
+      // Timer en cours : repousse la date de fin côté système (+30s)
+      if (timerRunning && timerStartRef.current) {
+        const elapsed = timerAccumRef.current + Math.floor((Date.now() - timerStartRef.current) / 1000);
+        const remaining = Math.max(0, next - elapsed);
+        updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000);
+      }
       return next;
     });
   };

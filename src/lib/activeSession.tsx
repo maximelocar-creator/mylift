@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { hydrateSessionExos, todayIso, type Any } from "../core/mylift";
 import { uid } from "../db/repo";
+import { startSessionActivity, endSessionActivity } from "./liveActivity";
 
 // Clé PAR COMPTE : une séance en cours ne doit jamais suivre un changement
 // d'utilisateur sur le même téléphone (bug vécu : la séance de maxlocar
@@ -42,7 +43,12 @@ export function ActiveSessionProvider({ userId, children }: { userId: string | n
     let cancelled = false;
     AsyncStorage.getItem(keyFor(userId))
       .then((v) => {
-        if (v && !cancelled) setActiveSessionState(JSON.parse(v));
+        if (v && !cancelled) {
+          const s = JSON.parse(v);
+          setActiveSessionState(s);
+          // Relance d'app avec séance en cours : on repart une Live Activity
+          startSessionActivity(s?.sessionName);
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -54,7 +60,12 @@ export function ActiveSessionProvider({ userId, children }: { userId: string | n
   }, [userId]);
 
   const setActiveSession = (s: Any | null) => {
-    setActiveSessionState(s);
+    // Live Activity liée au cycle de vie de la séance (démarrage / fin)
+    setActiveSessionState((prev: Any | null) => {
+      if (!prev && s) startSessionActivity(s.sessionName);
+      if (prev && !s) endSessionActivity();
+      return s;
+    });
     if (!userId) return;
     if (s) AsyncStorage.setItem(keyFor(userId), JSON.stringify(s)).catch(() => {});
     else AsyncStorage.removeItem(keyFor(userId)).catch(() => {});
