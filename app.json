@@ -17,6 +17,8 @@
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "instagram",
+          "instagram-stories",
+          "instagram",
           "instagram-stories"
         ],
         "NSCameraUsageDescription": "MyLift utilise l'appareil photo pour ajouter une photo à tes posts et à ton profil.",
@@ -24,7 +26,8 @@
         "NSPhotoLibraryAddUsageDescription": "MyLift enregistre dans ta galerie les images générées pour le partage.",
         "NSHealthShareUsageDescription": "MyLift lit ton poids depuis Apple Santé pour synchroniser tes pesées.",
         "NSHealthUpdateUsageDescription": "MyLift écrit tes pesées dans Apple Santé pour les retrouver partout.",
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
@@ -40,7 +43,9 @@
         {
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-apple-authentication",
+      "expo-live-activity"
     ],
     "extra": {
       "router": {},
