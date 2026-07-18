@@ -15,7 +15,22 @@
 //     Santé garde son échantillon) — jamais d'écrasement silencieux.
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Any } from "../core/mylift";
+
+// Préférence locale (par compte, jamais synchronisée — décision verrouillée
+// sur les préférences UI) : la sync Santé ne tourne que si activée dans
+// Réglages. Défaut : désactivée (opt-in explicite).
+const enabledKey = (uid: string) => "mylift_health_enabled:" + uid;
+
+export async function isHealthEnabled(uid: string): Promise<boolean> {
+  return (await AsyncStorage.getItem(enabledKey(uid))) === "1";
+}
+
+export async function setHealthEnabled(uid: string, on: boolean): Promise<void> {
+  if (on) await AsyncStorage.setItem(enabledKey(uid), "1");
+  else await AsyncStorage.removeItem(enabledKey(uid));
+}
 
 const IN_EXPO_GO = Constants.appOwnership === "expo";
 

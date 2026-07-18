@@ -6,7 +6,7 @@ import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
-import { healthAvailable, syncHealthWeights, writeHealthWeight } from "@/lib/health";
+import { healthAvailable, isHealthEnabled, syncHealthWeights, writeHealthWeight } from "@/lib/health";
 import { iso, daysAgo, todayIso, type Any } from "@/core/mylift";
 import { formatDate, formatRelative } from "@/lib/format";
 import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, SyncDot, LINE } from "@/ui/kit";
@@ -48,22 +48,28 @@ export default function PeseeSection() {
   const [healthMsg, setHealthMsg] = useState<string | null>(null);
   const healthRan = useRef(false);
   useEffect(() => {
-    if (healthRan.current || !healthAvailable()) return;
+    if (healthRan.current || !healthAvailable() || !data.userId) return;
     healthRan.current = true;
-    syncHealthWeights({ weights, addWeight: data.addWeight }).then(({ imported, exported }) => {
+    (async () => {
+      if (!(await isHealthEnabled(data.userId!))) return; // opt-in via Réglages
+      const { imported, exported } = await syncHealthWeights({ weights, addWeight: data.addWeight });
       if (imported || exported) {
         setHealthMsg(`Santé : ${imported} importée${imported > 1 ? "s" : ""} · ${exported} exportée${exported > 1 ? "s" : ""}`);
         setTimeout(() => setHealthMsg(null), 4000);
       }
-    });
+    })();
   }, []);
 
   const save = async () => {
     const w = parseFloat(draftWeight.replace(",", "."));
     if (isNaN(w) || w <= 0 || w > 400) return;
     await data.addWeight({ date: todayIso(), weight: w, note: draftNote.trim() || null });
-    // Écriture immédiate vers Santé (no-op hors build natif)
-    writeHealthWeight(w, todayIso()).catch(() => {});
+    // Écriture immédiate vers Santé (si activée dans Réglages)
+    if (data.userId) {
+      isHealthEnabled(data.userId).then((on) => {
+        if (on) writeHealthWeight(w, todayIso()).catch(() => {});
+      });
+    }
     setDraftWeight("");
     setDraftNote("");
     setAddOpen(false);

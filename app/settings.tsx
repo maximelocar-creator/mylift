@@ -1,7 +1,7 @@
 // Réglages — passe fonctionnelle (étape 6, à peaufiner ensuite) :
 // compte + sync, programmes (choix du courant), bibliothèque (liste par muscle,
 // ajout d'exo custom et de machines), groupes musculaires, import backup v40.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -14,6 +14,7 @@ import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
 import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
+import { healthAvailable, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
 
 // Couleurs de machine (mêmes clés que v40)
 const MODEL_COLOR_HEX: Record<string, string> = {
@@ -38,6 +39,37 @@ export default function Params() {
   const [newExoSub, setNewExoSub] = useState<string | null>(null);
   const [newExoCompound, setNewExoCompound] = useState(false);
   const [modelExo, setModelExo] = useState<Any | null>(null);
+  const [healthOn, setHealthOn] = useState(false);
+  const [healthMsg2, setHealthMsg2] = useState<string | null>(null);
+  useEffect(() => {
+    if (data.userId) isHealthEnabled(data.userId).then(setHealthOn);
+  }, [data.userId]);
+
+  const toggleHealth = async (on: boolean) => {
+    if (!data.userId) return;
+    setHealthMsg2(null);
+    if (!on) {
+      setHealthOn(false);
+      await setHealthEnabled(data.userId, false);
+      haptic("light");
+      return;
+    }
+    if (!healthAvailable()) {
+      setHealthMsg2("Indisponible sur ce build (module Santé absent — refais un build EAS).");
+      haptic("warning");
+      return;
+    }
+    const granted = await initHealth(); // déclenche la popup de permission iOS
+    if (granted) {
+      setHealthOn(true);
+      await setHealthEnabled(data.userId, true);
+      setHealthMsg2("Activé — la sync tourne à chaque ouverture de l'écran Pesée.");
+      haptic("success");
+    } else {
+      setHealthMsg2("Permission refusée. Autorise MyLift dans Réglages iOS → Santé → Accès aux données.");
+      haptic("error");
+    }
+  };
   const [newModelName, setNewModelName] = useState("");
   const [newModelSetting, setNewModelSetting] = useState("");
   const [editModel, setEditModel] = useState<Any | null>(null); // {id, name, setting, color}
@@ -207,6 +239,21 @@ export default function Params() {
       {/* Groupes musculaires */}
       <SectionLabel>Groupes musculaires</SectionLabel>
       <MuscleGroupsSection />
+
+      {/* Apple Santé */}
+      <SectionLabel>Apple Santé</SectionLabel>
+      <View style={{ padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 16, marginBottom: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: C.ink0, fontSize: 14, fontWeight: "700" }}>Synchroniser les pesées</Text>
+            <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2, lineHeight: 16 }}>
+              Lit le poids saisi ailleurs (balance, autre app) et écrit tes pesées MyLift dans Santé.
+            </Text>
+          </View>
+          <Switch value={healthOn} onValueChange={toggleHealth} trackColor={{ true: C.accent }} />
+        </View>
+        {!!healthMsg2 && <Text style={{ color: C.ink2, fontSize: 11.5, marginTop: 8, lineHeight: 16 }}>{healthMsg2}</Text>}
+      </View>
 
       {/* Données */}
       <SectionLabel>Données</SectionLabel>
