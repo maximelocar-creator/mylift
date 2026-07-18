@@ -1,11 +1,12 @@
 // Pesée (section) — hero poids + delta, courbe lissée + brute avec scrubber,
 // ajout rapide, historique. Rendue dans Stats (vue Pesée) ET dans /pesee.
 // Le champ "à jeun" n'existe plus (décision verrouillée).
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
+import { healthAvailable, syncHealthWeights, writeHealthWeight } from "@/lib/health";
 import { iso, daysAgo, todayIso, type Any } from "@/core/mylift";
 import { formatDate, formatRelative } from "@/lib/format";
 import { Segment, Card, Label, SectionLabel, Sheet, ConfirmSheet, Btn, SyncDot, LINE } from "@/ui/kit";
@@ -41,10 +42,28 @@ export default function PeseeSection() {
   const firstInPeriod = inPeriod.length ? inPeriod[0] : null;
   const delta = last && firstInPeriod ? parseFloat(last.weight) - parseFloat(firstInPeriod.weight) : null;
 
+  // Apple Santé (build natif uniquement) : sync à l'ouverture de l'écran,
+  // une seule fois par montage — import des pesées d'ailleurs + export des
+  // nôtres. Les imports arrivent sans note (normal).
+  const [healthMsg, setHealthMsg] = useState<string | null>(null);
+  const healthRan = useRef(false);
+  useEffect(() => {
+    if (healthRan.current || !healthAvailable()) return;
+    healthRan.current = true;
+    syncHealthWeights({ weights, addWeight: data.addWeight }).then(({ imported, exported }) => {
+      if (imported || exported) {
+        setHealthMsg(`Santé : ${imported} importée${imported > 1 ? "s" : ""} · ${exported} exportée${exported > 1 ? "s" : ""}`);
+        setTimeout(() => setHealthMsg(null), 4000);
+      }
+    });
+  }, []);
+
   const save = async () => {
     const w = parseFloat(draftWeight.replace(",", "."));
     if (isNaN(w) || w <= 0 || w > 400) return;
     await data.addWeight({ date: todayIso(), weight: w, note: draftNote.trim() || null });
+    // Écriture immédiate vers Santé (no-op hors build natif)
+    writeHealthWeight(w, todayIso()).catch(() => {});
     setDraftWeight("");
     setDraftNote("");
     setAddOpen(false);
@@ -61,6 +80,10 @@ export default function PeseeSection() {
           ＋ Ajouter
         </Btn>
       </View>
+
+      {healthMsg && (
+        <Text style={{ fontSize: 11, color: C.success, marginBottom: 8, fontWeight: "600" }}>♥ {healthMsg}</Text>
+      )}
 
       {/* Hero */}
       <Card style={{ marginBottom: 12, padding: 20, borderRadius: 22 }}>
