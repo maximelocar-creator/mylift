@@ -88,11 +88,39 @@ export function countUnread(items: AppNotification[], readAt: string): number {
   return items.filter((i) => i.created_at > readAt).length;
 }
 
-/** PROD/BUILD — push distant (expo-notifications + token APNs). Volontairement
- *  inerte en Expo Go : aucun enregistrement de token n'est tenté ici. Au
- *  premier build EAS : brancher expo-notifications, demander la permission,
- *  enregistrer le token, et déclencher côté serveur (triggers sur
- *  likes/comments/follows → table notifications + envoi Expo Push). */
-export async function registerForPushIfBuilt(): Promise<void> {
-  return; // no-op tant que l'app tourne dans Expo Go
+/** Push distant — actif uniquement en build natif (jamais Expo Go, où le
+ *  push distant n'existe plus depuis SDK 53). Demande la permission,
+ *  récupère le token Expo (APNs dessous) et l'upsert dans push_tokens
+ *  (table + RLS owner-only : voir supabase/push_notifications.sql, à
+ *  appliquer par Maxime — l'ENVOI est déclenché par les triggers serveur
+ *  de ce même fichier sur likes/comments/follows). Best effort : ne jette
+ *  jamais, ne bloque jamais le démarrage. */
+export async function registerForPushIfBuilt(me: string): Promise<void> {
+  const Constants = require("expo-constants").default;
+  if (Constants.appOwnership === "expo") return; // Expo Go : jamais
+  try {
+    const Notifications = require("expo-notifications");
+    // Affichage des notifs quand l'app est au premier plan (bannière discrète)
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status !== "granted") {
+      ({ status } = await Notifications.requestPermissionsAsync());
+    }
+    if (status !== "granted") return;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) return;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    if (!token) return;
+    // Table absente tant que le SQL n'est pas appliqué : erreur avalée
+    await supabase.from("push_tokens").upsert({ user_id: me, token, updated_at: new Date().toISOString() });
+  } catch {
+    // pas de push : l'app reste 100% fonctionnelle
+  }
 }

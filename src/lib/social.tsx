@@ -61,11 +61,13 @@ export function SocialProvider({ userId, children }: { userId: string | null; ch
 
   useEffect(() => {
     refreshSocial();
+    // Push distant (build natif uniquement — inerte en Expo Go)
+    if (userId) notifs.registerForPushIfBuilt(userId);
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") refreshSocial();
     });
     return () => sub.remove();
-  }, [refreshSocial]);
+  }, [refreshSocial, userId]);
 
   return <Ctx.Provider value={{ incoming, outgoing, friendCount, activity, unreadActivity, markActivityRead, refreshSocial }}>{children}</Ctx.Provider>;
 }
