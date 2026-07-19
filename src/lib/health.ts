@@ -55,6 +55,15 @@ function loadHealthKit(): Any | null {
     return null;
   }
   try {
+    // Sonde NON-JETANTE d'abord : sur un build sans le natif Nitro, le
+    // require de kingstinct jette une erreur qui remonte au gestionnaire
+    // global malgré le try/catch (même piège que react-native-share).
+    // TurboModuleRegistry.get (≠ getEnforcing) renvoie null sans jeter.
+    const { TurboModuleRegistry } = require("react-native");
+    if (!TurboModuleRegistry?.get?.("NitroModules")) {
+      lastHealthError = "module Santé absent de ce build (installer le dernier build EAS)";
+      return null;
+    }
     const hk = require("@kingstinct/react-native-healthkit");
     if (typeof hk?.isHealthDataAvailable !== "function") {
       lastHealthError = "module Santé absent de ce build (installer le dernier build EAS)";
