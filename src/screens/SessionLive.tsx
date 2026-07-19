@@ -18,6 +18,7 @@ import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
 import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
 import { updateRestTimer, clearRestTimer, updateSessionProgress, onTimerCommand } from "../lib/liveActivity";
+import { getRestTarget, REST_TARGET_DEFAULT } from "../lib/restTarget";
 
 /* ==================================================================== */
 /* Chrono global de séance                                              */
@@ -351,7 +352,19 @@ export default function SessionLive({
     if (t0.startedAt) return (t0.accum || 0) + Math.floor((Date.now() - t0.startedAt) / 1000);
     return t0.accum || 0;
   });
-  const [timerTarget, setTimerTarget] = useState(t0.target || 120);
+  const [timerTarget, setTimerTarget] = useState(t0.target || REST_TARGET_DEFAULT);
+  // Cible par défaut paramétrée dans Réglages (préférence locale par compte) :
+  // appliquée au montage si la séance n'a pas encore de cible persistée, et
+  // c'est sur elle que Reset retombe.
+  const prefTargetRef = useRef(REST_TARGET_DEFAULT);
+  useEffect(() => {
+    if (!data.userId) return;
+    getRestTarget(data.userId).then((v) => {
+      prefTargetRef.current = v;
+      // Séance sans cible explicite (nouveau timer) → applique la préférence
+      if (!sessionRef.current.timer?.target) setTimerTarget(v);
+    });
+  }, [data.userId]);
 
   const [exoSheetOpen, setExoSheetOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -419,12 +432,13 @@ export default function SessionLive({
   };
   const resetTimer = () => {
     haptic("light");
+    const target = prefTargetRef.current;
     timerStartRef.current = null;
     timerAccumRef.current = 0;
     setTimerDisplay(0);
-    setTimerTarget(120);
+    setTimerTarget(target);
     setTimerRunning(false);
-    persistTimer({ startedAt: null, accum: 0, target: 120 });
+    persistTimer({ startedAt: null, accum: 0, target });
     clearRestTimer(currentExo?.exName);
   };
   const addRestTime = () => {

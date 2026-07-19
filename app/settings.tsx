@@ -15,6 +15,7 @@ import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet,
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
 import { healthAvailable, healthDiagnostic, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
+import { getRestTarget, setRestTarget, formatRestTarget, REST_TARGET_MIN, REST_TARGET_MAX, REST_TARGET_STEP, REST_TARGET_DEFAULT } from "@/lib/restTarget";
 
 // Couleurs de machine (mêmes clés que v40)
 const MODEL_COLOR_HEX: Record<string, string> = {
@@ -39,6 +40,22 @@ export default function Params() {
   const [newExoSub, setNewExoSub] = useState<string | null>(null);
   const [newExoCompound, setNewExoCompound] = useState(false);
   const [modelExo, setModelExo] = useState<Any | null>(null);
+  const [restTarget, setRestTargetState] = useState(REST_TARGET_DEFAULT);
+  useEffect(() => {
+    if (data.userId) getRestTarget(data.userId).then(setRestTargetState);
+  }, [data.userId]);
+  const bumpRestTarget = (delta: number) => {
+    if (!data.userId) return;
+    const next = Math.min(REST_TARGET_MAX, Math.max(REST_TARGET_MIN, restTarget + delta));
+    if (next === restTarget) {
+      haptic("warning");
+      return;
+    }
+    setRestTargetState(next);
+    setRestTarget(data.userId, next);
+    haptic("light");
+  };
+
   const [healthOn, setHealthOn] = useState(false);
   const [healthMsg2, setHealthMsg2] = useState<string | null>(null);
   useEffect(() => {
@@ -242,6 +259,40 @@ export default function Params() {
       {/* Groupes musculaires */}
       <SectionLabel>Groupes musculaires</SectionLabel>
       <MuscleGroupsSection />
+
+      {/* Timer de repos */}
+      <SectionLabel>Séance</SectionLabel>
+      <View style={{ padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 16, marginBottom: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: C.ink0, fontSize: 14, fontWeight: "700" }}>Repos cible</Text>
+            <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2, lineHeight: 16 }}>
+              Durée visée du timer de repos (ajustable en séance par +30s).
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: C.bg3, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 3 }}>
+            <Pressable
+              onPress={() => bumpRestTarget(-REST_TARGET_STEP)}
+              disabled={restTarget <= REST_TARGET_MIN}
+              hitSlop={6}
+              style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: restTarget <= REST_TARGET_MIN ? 0.35 : 1 }}
+            >
+              <Text style={{ color: C.ink1, fontSize: 17, fontWeight: "800" }}>−</Text>
+            </Pressable>
+            <Text style={[mono, { minWidth: 48, textAlign: "center", fontSize: 15, fontWeight: "800", color: C.ink0 }]}>
+              {formatRestTarget(restTarget)}
+            </Text>
+            <Pressable
+              onPress={() => bumpRestTarget(REST_TARGET_STEP)}
+              disabled={restTarget >= REST_TARGET_MAX}
+              hitSlop={6}
+              style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: restTarget >= REST_TARGET_MAX ? 0.35 : 1 }}
+            >
+              <Text style={{ color: C.accentHi, fontSize: 17, fontWeight: "800" }}>＋</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
       {/* Apple Santé */}
       <SectionLabel>Apple Santé</SectionLabel>

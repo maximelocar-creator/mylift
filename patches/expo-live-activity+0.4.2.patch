@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
-index 1a00e92..bcb40f5 100644
+index 1a00e92..3985299 100644
 --- a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
 +++ b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
-@@ -1,246 +1,58 @@
+@@ -1,246 +1,56 @@
 +// Écran verrouillé MyLift (remplace la vue du package via patch-package).
 +// Marque MyLift · exo en cours · cible + machine (sous-titre fourni par
 +// l'app) · grand timer (0:00 fixe hors repos) · barre orange · boutons
@@ -276,8 +276,6 @@ index 1a00e92..bcb40f5 100644
 +            .labelsHidden()
 +            .tint(myliftCoral)
          }
-+
-+        TimerControls(timerRunning: contentState.timerEndDateInMilliseconds != nil)
        }
 -      .padding(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))
 +      .padding(16)

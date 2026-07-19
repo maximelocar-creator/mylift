@@ -49,8 +49,6 @@ import WidgetKit
             .labelsHidden()
             .tint(myliftCoral)
         }
-
-        TimerControls(timerRunning: contentState.timerEndDateInMilliseconds != nil)
       }
       .padding(16)
     }
