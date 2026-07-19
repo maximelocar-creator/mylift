@@ -460,6 +460,21 @@ Restait de la spec d'origine :
   Go), rien d'autre à préparer côté app
 
 ### Phase 5 — Mise en production
+ÉTAT (18/07/2026) : EAS opérationnel (@maxlocar/mylift-v2, profils dev/
+preview/prod). Build dev n°3 (FINISHED, non-interactif au token) contient
+TOUT le natif : Apple Sign-In (entitlement), Live Activities (extension
+expo-live-activity — timer repos système Dynamic Island/écran verrouillé,
+wiring dans activeSession+SessionLive via src/lib/liveActivity.ts),
+HealthKit (@kingstinct/react-native-healthkit — react-native-health ne se
+bridge PAS sous new-arch, constaté sur device), push (expo-notifications ;
+SQL serveur appliqué et VÉRIFIÉ en prod : trigger like → notification).
+Santé = opt-in dans Réglages (switch par compte). Icône/splash définitives
+(haltère coral DA) : dans le prochain build. Login : logos vectoriels.
+RESTE côté Maxime : META_APP_ID (developers.facebook.com) dans
+src/lib/instagram.ts ; providers Google/Apple dans le dashboard Supabase
+(Google Cloud OAuth + redirect mylift://auth-callback ; Apple : Client ID
+com.maxime.mylift). RESTE côté code : jalon E (RGPD, modération, purge/
+réimport) puis F (assets store, prod, TestFlight).
 - Conformité RGPD : suppression de compte en cascade complète (vérifier que
   chaque table avec owner_id a bien un ON DELETE CASCADE, déjà le cas dans
   le schéma), export de données personnelles sur demande
