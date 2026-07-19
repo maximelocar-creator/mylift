@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { supabase } from "@/lib/supabase";
 import { C, R, L, MOTION } from "@/lib/theme";
@@ -163,18 +164,18 @@ export default function Login() {
             <Pressable
               onPress={() => socialSignIn(signInWithApple)}
               disabled={busy}
-              style={{ backgroundColor: "#fff", borderRadius: R.md, height: 48, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 }}
+              style={({ pressed }) => ({ backgroundColor: pressed ? "#E4E4E8" : "#fff", borderRadius: R.md, height: 50, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 })}
             >
-              <Text style={{ fontSize: 16 }}></Text>
+              <Ionicons name="logo-apple" size={19} color="#000" style={{ marginTop: -2 }} />
               <Text style={{ color: "#000", fontSize: 15, fontWeight: "700" }}>Continuer avec Apple</Text>
             </Pressable>
           )}
           <Pressable
             onPress={() => socialSignIn(signInWithGoogle)}
             disabled={busy}
-            style={{ backgroundColor: "rgba(255,255,255,.07)", borderWidth: 1, borderColor: L.line, borderRadius: R.md, height: 48, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 }}
+            style={({ pressed }) => ({ backgroundColor: pressed ? L.bgHover : "rgba(255,255,255,.07)", borderWidth: 1, borderColor: L.line, borderRadius: R.md, height: 50, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, opacity: busy ? 0.6 : 1 })}
           >
-            <Text style={{ fontSize: 14 }}>G</Text>
+            <Ionicons name="logo-google" size={17} color={C.ink0} />
             <Text style={{ color: C.ink0, fontSize: 15, fontWeight: "700" }}>Continuer avec Google</Text>
           </Pressable>
         </View>
