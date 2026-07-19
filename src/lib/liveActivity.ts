@@ -38,6 +38,9 @@ const CONFIG = {
 
 let activityId: string | null = null;
 let baseTitle = "Séance en cours";
+// Dernier état "hors repos" connu — on y revient quand le timer s'arrête,
+// pour que l'île reste vivante (progression) au lieu d'un état générique.
+let lastProgressState: { title: string; subtitle: string; progress: number } | null = null;
 
 export function isLiveActivitySupported(): boolean {
   return !!LA;
@@ -48,6 +51,7 @@ export function startSessionActivity(sessionName: string): void {
   if (!LA) return;
   try {
     baseTitle = sessionName || "Séance en cours";
+    lastProgressState = null;
     // Une seule activité à la fois : si une traîne (relance d'app), on repart
     if (activityId) {
       try {
@@ -55,10 +59,32 @@ export function startSessionActivity(sessionName: string): void {
       } catch {}
       activityId = null;
     }
-    activityId = LA.startActivity({ title: baseTitle, subtitle: "Séance en cours" }, CONFIG) || null;
+    activityId =
+      LA.startActivity(
+        { title: baseTitle, subtitle: "Échauffe-toi 💪", progressBar: { progress: 0 } },
+        CONFIG
+      ) || null;
   } catch {
     activityId = null;
   }
+}
+
+/** Progression de séance (hors repos) : appelée à chaque série validée et à
+ *  chaque changement d'exo — l'île vit au rythme de la séance.
+ *  done/total = séries validées / total, la barre de l'île avance avec toi. */
+export function updateSessionProgress(exName: string, doneSets: number, totalSets: number, nextWeight: number | string | null): void {
+  if (!LA || !activityId) return;
+  try {
+    const w = nextWeight !== null && nextWeight !== undefined && nextWeight !== "" ? ` · prochaine ${nextWeight} kg` : "";
+    const allDone = totalSets > 0 && doneSets >= totalSets;
+    const state = {
+      title: exName || baseTitle,
+      subtitle: allDone ? "Exo terminé ✓ — enchaîne !" : `Série ${Math.min(doneSets + 1, totalSets)}/${totalSets}${w}`,
+      progress: totalSets > 0 ? Math.min(1, doneSets / totalSets) : 0,
+    };
+    lastProgressState = state;
+    LA.updateActivity(activityId, { title: state.title, subtitle: state.subtitle, progressBar: { progress: state.progress } });
+  } catch {}
 }
 
 /** Timer de repos démarré/ajusté : décompte système jusqu'à endMs.
@@ -69,17 +95,25 @@ export function updateRestTimer(exName: string, targetWeight: number | string | 
     const w = targetWeight !== null && targetWeight !== undefined && targetWeight !== "" ? `${targetWeight} kg` : null;
     LA.updateActivity(activityId, {
       title: exName || baseTitle,
-      subtitle: w ? `Repos · prochaine série ${w}` : "Repos",
+      subtitle: w ? `⏱ Repos · prochaine série ${w}` : "⏱ Repos",
       progressBar: { date: endMs },
     });
   } catch {}
 }
 
-/** Repos arrêté/terminé : retour à l'état séance (sans décompte). */
+/** Repos arrêté/terminé : retour à l'état de progression (l'île reste vivante). */
 export function clearRestTimer(exName?: string | null): void {
   if (!LA || !activityId) return;
   try {
-    LA.updateActivity(activityId, { title: exName || baseTitle, subtitle: "Séance en cours" });
+    if (lastProgressState) {
+      LA.updateActivity(activityId, {
+        title: lastProgressState.title,
+        subtitle: lastProgressState.subtitle,
+        progressBar: { progress: lastProgressState.progress },
+      });
+    } else {
+      LA.updateActivity(activityId, { title: exName || baseTitle, subtitle: "Séance en cours" });
+    }
   } catch {}
 }
 
@@ -87,7 +121,7 @@ export function clearRestTimer(exName?: string | null): void {
 export function endSessionActivity(): void {
   if (!LA || !activityId) return;
   try {
-    LA.stopActivity(activityId, { title: baseTitle, subtitle: "Séance terminée" });
+    LA.stopActivity(activityId, { title: baseTitle, subtitle: "Séance terminée 🎉", progressBar: { progress: 1 } });
   } catch {}
   activityId = null;
 }

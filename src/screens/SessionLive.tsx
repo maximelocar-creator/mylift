@@ -17,7 +17,7 @@ import { useData } from "../lib/store";
 import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
 import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
-import { updateRestTimer, clearRestTimer } from "../lib/liveActivity";
+import { updateRestTimer, clearRestTimer, updateSessionProgress } from "../lib/liveActivity";
 
 /* ==================================================================== */
 /* Chrono global de séance                                              */
@@ -576,6 +576,12 @@ export default function SessionLive({
 
     const prs = computePRsForSet(newExos[exIdx], setIdx, journalLogs);
     haptic("success");
+    // Live Activity : la barre de l'île avance au rythme des séries validées
+    {
+      const doneAll = newExos.reduce((a: number, e: Any) => a + (e.sets || []).filter((x: Any) => x._confirmed && isValidSet(x)).length, 0);
+      const totalAll = newExos.reduce((a: number, e: Any) => a + (e.sets || []).length, 0);
+      updateSessionProgress(newExos[exIdx].exName, doneAll, totalAll, newExos[exIdx].targetWeight ?? null);
+    }
     // Le timer ne démarre JAMAIS automatiquement (décision verrouillée v40).
 
     // Popup dépassement de cible (cible effective = modelTargets si modèle actif)
@@ -697,6 +703,14 @@ export default function SessionLive({
   }
 
   const switchExo = (idx: number) => {
+    {
+      const ex = session.exercises[idx];
+      if (ex) {
+        const doneAll = session.exercises.reduce((a: number, e: Any) => a + (e.sets || []).filter((x: Any) => x._confirmed && isValidSet(x)).length, 0);
+        const totalAll = session.exercises.reduce((a: number, e: Any) => a + (e.sets || []).length, 0);
+        updateSessionProgress(ex.exName, doneAll, totalAll, ex.targetWeight ?? null);
+      }
+    }
     // Le timer SURVIT au switch d'exo (pas de reset)
     haptic("light");
     onUpdate({ ...session, currentExoIdx: idx });

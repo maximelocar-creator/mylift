@@ -35,16 +35,39 @@ export async function setHealthEnabled(uid: string, on: boolean): Promise<void> 
 const IN_EXPO_GO = Constants.appOwnership === "expo";
 const BODY_MASS = "HKQuantityTypeIdentifierBodyMass" as const;
 
+// Diagnostic : pourquoi Santé est indisponible/refusée — affiché dans le
+// toggle de Réglages plutôt qu'un échec muet (debug sans Mac).
+let lastHealthError: string | null = null;
+export function healthDiagnostic(): string | null {
+  return lastHealthError;
+}
+
 // Backend : @kingstinct/react-native-healthkit (Nitro modules, natif pour la
 // nouvelle architecture RN). L'ancien react-native-health compilait mais ne
 // se bridgait PAS sous bridgeless — « indisponible » constaté sur device.
 function loadHealthKit(): Any | null {
-  if (IN_EXPO_GO || Platform.OS !== "ios") return null;
+  if (IN_EXPO_GO) {
+    lastHealthError = "Expo Go (utiliser le build natif)";
+    return null;
+  }
+  if (Platform.OS !== "ios") {
+    lastHealthError = "iOS uniquement";
+    return null;
+  }
   try {
     const hk = require("@kingstinct/react-native-healthkit");
-    if (typeof hk?.isHealthDataAvailable !== "function") return null;
-    return hk.isHealthDataAvailable() ? hk : null;
-  } catch {
+    if (typeof hk?.isHealthDataAvailable !== "function") {
+      lastHealthError = "module Santé absent de ce build (installer le dernier build EAS)";
+      return null;
+    }
+    if (!hk.isHealthDataAvailable()) {
+      lastHealthError = "HealthKit indisponible sur cet appareil";
+      return null;
+    }
+    lastHealthError = null;
+    return hk;
+  } catch (e: any) {
+    lastHealthError = "chargement : " + (e?.message ?? String(e));
     return null;
   }
 }
@@ -58,8 +81,11 @@ export async function initHealth(): Promise<boolean> {
   const hk = loadHealthKit();
   if (!hk) return false;
   try {
-    return !!(await hk.requestAuthorization({ toShare: [BODY_MASS], toRead: [BODY_MASS] }));
-  } catch {
+    const ok = await hk.requestAuthorization({ toShare: [BODY_MASS], toRead: [BODY_MASS] });
+    if (!ok) lastHealthError = "autorisation refusée";
+    return !!ok;
+  } catch (e: any) {
+    lastHealthError = "permission : " + (e?.message ?? String(e));
     return false;
   }
 }

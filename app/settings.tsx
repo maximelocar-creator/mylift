@@ -14,7 +14,7 @@ import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
 import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
-import { healthAvailable, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
+import { healthAvailable, healthDiagnostic, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
 
 // Couleurs de machine (mêmes clés que v40)
 const MODEL_COLOR_HEX: Record<string, string> = {
@@ -55,7 +55,7 @@ export default function Params() {
       return;
     }
     if (!healthAvailable()) {
-      setHealthMsg2("Indisponible sur ce build (module Santé absent — refais un build EAS).");
+      setHealthMsg2("Indisponible — " + (healthDiagnostic() ?? "raison inconnue"));
       haptic("warning");
       return;
     }
@@ -63,10 +63,13 @@ export default function Params() {
     if (granted) {
       setHealthOn(true);
       await setHealthEnabled(data.userId, true);
-      setHealthMsg2("Activé — la sync tourne à chaque ouverture de l'écran Pesée.");
+      setHealthMsg2("Activé ✓ — la sync tourne à chaque ouverture de l'écran Pesée.");
       haptic("success");
     } else {
-      setHealthMsg2("Permission refusée. Autorise MyLift dans Réglages iOS → Santé → Accès aux données.");
+      setHealthMsg2(
+        (healthDiagnostic() ? "Échec (" + healthDiagnostic() + "). " : "") +
+          "Vérifie dans Réglages iOS → Confidentialité → Santé → MyLift que lecture et écriture du poids sont autorisées."
+      );
       haptic("error");
     }
   };
@@ -243,7 +246,24 @@ export default function Params() {
       {/* Apple Santé */}
       <SectionLabel>Apple Santé</SectionLabel>
       <View style={{ padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 16, marginBottom: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          {/* Tuile façon app Santé : cœur dégradé sur fond blanc */}
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              backgroundColor: "#FFFFFF",
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 3,
+              shadowOffset: { width: 0, height: 1 },
+            }}
+          >
+            <Ionicons name="heart" size={19} color="#FF2D55" />
+          </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ color: C.ink0, fontSize: 14, fontWeight: "700" }}>Synchroniser les pesées</Text>
             <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2, lineHeight: 16 }}>

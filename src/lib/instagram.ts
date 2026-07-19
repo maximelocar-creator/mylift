@@ -15,7 +15,12 @@ import { Platform, Linking } from "react-native";
 import Constants from "expo-constants";
 import { C } from "./theme";
 
-export const META_APP_ID = ""; // PROD/BUILD : App ID Meta à renseigner
+export const META_APP_ID = ""; // App ID Meta officiel (developers.facebook.com) — recommandé pour la prod
+// Sans App ID Meta, Instagram accepte en pratique le partage de sticker via le
+// pasteboard (l'ID sert surtout à l'attribution). On tente donc TOUJOURS le
+// chemin direct avec un identifiant de repli ; en cas de refus, le catch
+// ramène au share sheet — aucun chemin perdant.
+const EFFECTIVE_APP_ID = META_APP_ID || "com.maxime.mylift";
 
 // Expo Go n'embarque PAS le natif de react-native-share : même sous try/catch,
 // l'Invariant Violation du TurboModuleRegistry remonte au gestionnaire global
@@ -38,7 +43,7 @@ export async function canShareToInstagramStories(): Promise<boolean> {
   const share = loadRNShare();
   if (!share?.default?.shareSingle) return false;
   try {
-    return await Linking.canOpenURL("instagram-stories://share?source_application=" + (META_APP_ID || "mylift"));
+    return await Linking.canOpenURL("instagram-stories://share?source_application=" + EFFECTIVE_APP_ID);
   } catch {
     return false;
   }
@@ -54,7 +59,7 @@ export async function shareStickerToInstagramStories(stickerUri: string): Promis
   try {
     await share.default.shareSingle({
       social: "instagramstories",
-      appId: META_APP_ID,
+      appId: EFFECTIVE_APP_ID,
       stickerImage: stickerUri,
       // Fond dégradé DA par défaut derrière le sticker — l'utilisateur peut le
       // remplacer par sa propre photo dans l'éditeur Instagram.
