@@ -470,11 +470,21 @@ bridge PAS sous new-arch, constaté sur device), push (expo-notifications ;
 SQL serveur appliqué et VÉRIFIÉ en prod : trigger like → notification).
 Santé = opt-in dans Réglages (switch par compte). Icône/splash définitives
 (haltère coral DA) : dans le prochain build. Login : logos vectoriels.
+Builds 3 et 4 FINISHED (lancés non-interactifs au token EXPO_TOKEN — les
+credentials des 2 cibles vivent chez EAS après le 1er run interactif).
+Build 4 = le bon (icône/splash premium inclus). ATTENTION : le build 2
+(lancé par Maxime) n'a PAS le module Santé kingstinct — « Santé marche
+pas » sur build 2 est NORMAL, installer le 4. QA multi-users API 17/17
+(amitiés + triggers push anti-écho, posts, likes, comments 500, RPC
+suggestions) — pushes réels envoyés au compte de Maxime pendant les tests.
+Live Activity dynamisée : progression séries/total dans l'île (états
+Échauffe-toi → Série X/Y → Repos décompte → Terminée 🎉).
 RESTE côté Maxime : META_APP_ID (developers.facebook.com) dans
-src/lib/instagram.ts ; providers Google/Apple dans le dashboard Supabase
-(Google Cloud OAuth + redirect mylift://auth-callback ; Apple : Client ID
-com.maxime.mylift). RESTE côté code : jalon E (RGPD, modération, purge/
-réimport) puis F (assets store, prod, TestFlight).
+src/lib/instagram.ts (le chemin direct tente déjà un id de repli) ;
+providers Google/Apple dans le dashboard Supabase (Google Cloud OAuth +
+redirect mylift://auth-callback ; Apple : Client ID com.maxime.mylift).
+RESTE côté code : jalon E (RGPD, modération, purge/réimport) puis F
+(assets store, prod, TestFlight).
 - Conformité RGPD : suppression de compte en cascade complète (vérifier que
   chaque table avec owner_id a bien un ON DELETE CASCADE, déjà le cas dans
   le schéma), export de données personnelles sur demande
