@@ -46,6 +46,32 @@ export function isLiveActivitySupported(): boolean {
   return !!LA;
 }
 
+/* Commandes timer venues de l'écran verrouillé / l'île (deep links
+   mylift://timer/start|stop|reset, route app/timer/[action]). Bufferisées
+   si l'écran de séance n'est pas encore monté au moment du tap. */
+export type TimerCommand = "start" | "stop" | "reset";
+let timerCmdHandler: ((c: TimerCommand) => void) | null = null;
+let pendingTimerCmd: TimerCommand | null = null;
+
+export function emitTimerCommand(c: TimerCommand): void {
+  if (timerCmdHandler) timerCmdHandler(c);
+  else pendingTimerCmd = c;
+}
+
+export function onTimerCommand(h: (c: TimerCommand) => void): () => void {
+  timerCmdHandler = h;
+  if (pendingTimerCmd) {
+    const c = pendingTimerCmd;
+    pendingTimerCmd = null;
+    h(c);
+  }
+  return () => {
+    if (timerCmdHandler === h) timerCmdHandler = null;
+  };
+}
+
+const withMachine = (base: string, machine?: string | null) => (machine ? `${base} · ${machine}` : base);
+
 /** Démarre la Live Activity au lancement de la séance. */
 export function startSessionActivity(sessionName: string): void {
   if (!LA) return;
@@ -72,14 +98,22 @@ export function startSessionActivity(sessionName: string): void {
 /** Progression de séance (hors repos) : appelée à chaque série validée et à
  *  chaque changement d'exo — l'île vit au rythme de la séance.
  *  done/total = séries validées / total, la barre de l'île avance avec toi. */
-export function updateSessionProgress(exName: string, doneSets: number, totalSets: number, nextWeight: number | string | null): void {
+export function updateSessionProgress(
+  exName: string,
+  doneSets: number,
+  totalSets: number,
+  nextWeight: number | string | null,
+  machineName?: string | null
+): void {
   if (!LA || !activityId) return;
   try {
-    const w = nextWeight !== null && nextWeight !== undefined && nextWeight !== "" ? ` · prochaine ${nextWeight} kg` : "";
+    const w = nextWeight !== null && nextWeight !== undefined && nextWeight !== "" ? ` · ${nextWeight} kg` : "";
     const allDone = totalSets > 0 && doneSets >= totalSets;
     const state = {
       title: exName || baseTitle,
-      subtitle: allDone ? "Exo terminé ✓ — enchaîne !" : `Série ${Math.min(doneSets + 1, totalSets)}/${totalSets}${w}`,
+      subtitle: allDone
+        ? "Exo terminé ✓ — enchaîne !"
+        : withMachine(`Série ${Math.min(doneSets + 1, totalSets)}/${totalSets}${w}`, machineName),
       progress: totalSets > 0 ? Math.min(1, doneSets / totalSets) : 0,
     };
     lastProgressState = state;
@@ -89,13 +123,18 @@ export function updateSessionProgress(exName: string, doneSets: number, totalSet
 
 /** Timer de repos démarré/ajusté : décompte système jusqu'à endMs.
  *  Écran verrouillé : nom de l'exo en cours + cible de la prochaine série. */
-export function updateRestTimer(exName: string, targetWeight: number | string | null, endMs: number): void {
+export function updateRestTimer(
+  exName: string,
+  targetWeight: number | string | null,
+  endMs: number,
+  machineName?: string | null
+): void {
   if (!LA || !activityId) return;
   try {
-    const w = targetWeight !== null && targetWeight !== undefined && targetWeight !== "" ? `${targetWeight} kg` : null;
+    const w = targetWeight !== null && targetWeight !== undefined && targetWeight !== "" ? `cible ${targetWeight} kg` : null;
     LA.updateActivity(activityId, {
       title: exName || baseTitle,
-      subtitle: w ? `⏱ Repos · prochaine série ${w}` : "⏱ Repos",
+      subtitle: withMachine(w ?? "Repos", machineName),
       progressBar: { date: endMs },
     });
   } catch {}

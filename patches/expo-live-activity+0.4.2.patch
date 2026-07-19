@@ -1,0 +1,580 @@
+diff --git a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
+index 1a00e92..bcb40f5 100644
+--- a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
++++ b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
+@@ -1,246 +1,58 @@
++// Écran verrouillé MyLift (remplace la vue du package via patch-package).
++// Marque MyLift · exo en cours · cible + machine (sous-titre fourni par
++// l'app) · grand timer (0:00 fixe hors repos) · barre orange · boutons
++// Start/Pause/Reset (deep links interceptés par l'app).
+ import SwiftUI
+ import WidgetKit
+ 
+ #if canImport(ActivityKit)
+ 
+-  struct ConditionalForegroundViewModifier: ViewModifier {
+-    let color: String?
+-
+-    func body(content: Content) -> some View {
+-      if let color = color {
+-        content.foregroundStyle(Color(hex: color))
+-      } else {
+-        content
+-      }
+-    }
+-  }
+-
+-  struct DebugLog: View {
+-    #if DEBUG
+-      private let message: String
+-      init(_ message: String) {
+-        self.message = message
+-        print(message)
+-      }
+-
+-      var body: some View {
+-        Text(message)
+-          .font(.caption2)
+-          .foregroundStyle(.red)
+-      }
+-    #else
+-      init(_: String) {}
+-      var body: some View { EmptyView() }
+-    #endif
+-  }
+-
+   struct LiveActivityView: View {
+     let contentState: LiveActivityAttributes.ContentState
+     let attributes: LiveActivityAttributes
+-    @State private var imageContainerSize: CGSize?
+-
+-    var progressViewTint: Color? {
+-      attributes.progressViewTint.map { Color(hex: $0) }
+-    }
+-
+-    private var imageAlignment: Alignment {
+-      switch attributes.imageAlign {
+-      case "center":
+-        return .center
+-      case "bottom":
+-        return .bottom
+-      default:
+-        return .top
+-      }
+-    }
+-
+-    private func alignedImage(imageName: String) -> some View {
+-      let defaultHeight: CGFloat = 64
+-      let defaultWidth: CGFloat = 64
+-      let containerHeight = imageContainerSize?.height
+-      let containerWidth = imageContainerSize?.width
+-      let hasWidthConstraint = (attributes.imageWidthPercent != nil) || (attributes.imageWidth != nil)
+-
+-      let computedHeight: CGFloat? = {
+-        if let percent = attributes.imageHeightPercent {
+-          let clamped = min(max(percent, 0), 100) / 100.0
+-          // Use the row height as a base. Fallback to default when row height is not measured yet.
+-          let base = (containerHeight ?? defaultHeight)
+-          return base * clamped
+-        } else if let size = attributes.imageHeight {
+-          return CGFloat(size)
+-        } else if hasWidthConstraint {
+-          // Mimic CSS: when only width is set, keep height automatic to preserve aspect ratio
+-          return nil
+-        } else {
+-          // Mimic CSS: this works against CSS but provides a better default behavior.
+-          // When no width/height is set, use a default size (64pt)
+-          // Width will adjust automatically base on aspect ratio
+-          return defaultHeight
+-        }
+-      }()
+-
+-      let computedWidth: CGFloat? = {
+-        if let percent = attributes.imageWidthPercent {
+-          let clamped = min(max(percent, 0), 100) / 100.0
+-          let base = (containerWidth ?? defaultWidth)
+-          return base * clamped
+-        } else if let size = attributes.imageWidth {
+-          return CGFloat(size)
+-        } else {
+-          return nil // Keep aspect fit based on height
+-        }
+-      }()
+-
+-      return ZStack(alignment: .center) {
+-        Group {
+-          let fit = attributes.contentFit ?? "cover"
+-          switch fit {
+-          case "contain":
+-            Image.dynamic(assetNameOrPath: imageName).resizable().scaledToFit().frame(width: computedWidth, height: computedHeight)
+-          case "fill":
+-            Image.dynamic(assetNameOrPath: imageName).resizable().frame(
+-              width: computedWidth,
+-              height: computedHeight
+-            )
+-          case "none":
+-            Image.dynamic(assetNameOrPath: imageName).renderingMode(.original).frame(width: computedWidth, height: computedHeight)
+-          case "scale-down":
+-            if let uiImage = UIImage.dynamic(assetNameOrPath: imageName) {
+-              // Determine the target box. When width/height are nil, we use image's intrinsic dimension for comparison.
+-              let targetHeight = computedHeight ?? uiImage.size.height
+-              let targetWidth = computedWidth ?? uiImage.size.width
+-              let shouldScaleDown = uiImage.size.height > targetHeight || uiImage.size.width > targetWidth
+-
+-              if shouldScaleDown {
+-                Image(uiImage: uiImage)
+-                  .resizable()
+-                  .scaledToFit()
+-                  .frame(width: computedWidth, height: computedHeight)
+-              } else {
+-                Image(uiImage: uiImage)
+-                  .renderingMode(.original)
+-                  .frame(width: min(uiImage.size.width, targetWidth), height: min(uiImage.size.height, targetHeight))
+-              }
+-            } else {
+-              DebugLog("⚠️[ExpoLiveActivity] assetNameOrPath couldn't resolve to UIImage")
+-            }
+-          case "cover":
+-            Image.dynamic(assetNameOrPath: imageName).resizable().scaledToFill().frame(
+-              width: computedWidth,
+-              height: computedHeight
+-            ).clipped()
+-          default:
+-            DebugLog("⚠️[ExpoLiveActivity] Unknown contentFit '\(fit)'")
+-          }
+-        }
+-      }
+-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: imageAlignment)
+-      .background(
+-        GeometryReader { proxy in
+-          Color.clear
+-            .onAppear {
+-              let s = proxy.size
+-              if s.width > 0, s.height > 0 { imageContainerSize = s }
+-            }
+-            .onChange(of: proxy.size) { s in
+-              if s.width > 0, s.height > 0 { imageContainerSize = s }
+-            }
+-        }
+-      )
+-    }
+ 
+     var body: some View {
+-      let defaultPadding = 24
+-
+-      let top = CGFloat(
+-        attributes.paddingDetails?.top
+-          ?? attributes.paddingDetails?.vertical
+-          ?? attributes.padding
+-          ?? defaultPadding
+-      )
+-
+-      let bottom = CGFloat(
+-        attributes.paddingDetails?.bottom
+-          ?? attributes.paddingDetails?.vertical
+-          ?? attributes.padding
+-          ?? defaultPadding
+-      )
+-
+-      let leading = CGFloat(
+-        attributes.paddingDetails?.left
+-          ?? attributes.paddingDetails?.horizontal
+-          ?? attributes.padding
+-          ?? defaultPadding
+-      )
+-
+-      let trailing = CGFloat(
+-        attributes.paddingDetails?.right
+-          ?? attributes.paddingDetails?.horizontal
+-          ?? attributes.padding
+-          ?? defaultPadding
+-      )
+-
+-      VStack(alignment: .leading) {
+-        let position = attributes.imagePosition ?? "right"
+-        let isStretch = position.contains("Stretch")
+-        let isLeftImage = position.hasPrefix("left")
+-        let hasImage = contentState.imageName != nil
+-        let effectiveStretch = isStretch && hasImage
+-
+-        HStack(alignment: .center) {
+-          if hasImage, isLeftImage {
+-            if let imageName = contentState.imageName {
+-              alignedImage(imageName: imageName)
+-            }
+-          }
++      VStack(alignment: .leading, spacing: 10) {
++        HStack {
++          MyLiftMark(size: 13)
++          Spacer()
++          Image(systemName: "dumbbell.fill")
++            .font(.system(size: 13, weight: .bold))
++            .foregroundColor(myliftCoral)
++        }
+ 
+-          VStack(alignment: .leading, spacing: 2) {
++        HStack(alignment: .center, spacing: 12) {
++          VStack(alignment: .leading, spacing: 3) {
+             Text(contentState.title)
+-              .font(.title2)
+-              .fontWeight(.semibold)
+-              .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
+-
++              .font(.system(size: 19, weight: .bold))
++              .foregroundColor(.white)
++              .lineLimit(1)
++              .minimumScaleFactor(0.75)
+             if let subtitle = contentState.subtitle {
+               Text(subtitle)
+-                .font(.title3)
+-                .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
+-            }
+-
+-            if effectiveStretch {
+-              if let date = contentState.timerEndDateInMilliseconds {
+-                ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
+-                  .tint(progressViewTint)
+-                  .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
+-              } else if let progress = contentState.progress {
+-                ProgressView(value: progress)
+-                  .tint(progressViewTint)
+-                  .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
+-              }
+-            }
+-          }.layoutPriority(1)
+-
+-          if hasImage, !isLeftImage { // right side (default)
+-            Spacer()
+-            if let imageName = contentState.imageName {
+-              alignedImage(imageName: imageName)
++                .font(.system(size: 13, weight: .medium))
++                .foregroundColor(.white.opacity(0.7))
++                .lineLimit(2)
++                .minimumScaleFactor(0.8)
+             }
+           }
++          Spacer()
++          RestTimerText(endDate: contentState.timerEndDateInMilliseconds, size: 30)
+         }
+ 
+-        if !effectiveStretch {
+-          if let date = contentState.timerEndDateInMilliseconds {
+-            ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
+-              .tint(progressViewTint)
+-              .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
+-          } else if let progress = contentState.progress {
+-            ProgressView(value: progress)
+-              .tint(progressViewTint)
+-              .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
+-          }
++        if let date = contentState.timerEndDateInMilliseconds {
++          ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
++            .labelsHidden()
++            .tint(myliftCoral)
++        } else {
++          ProgressView(value: contentState.progress ?? 0)
++            .labelsHidden()
++            .tint(myliftCoral)
+         }
++
++        TimerControls(timerRunning: contentState.timerEndDateInMilliseconds != nil)
+       }
+-      .padding(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))
++      .padding(16)
+     }
+   }
+ 
+diff --git a/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift b/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
+index 24cd8c5..ec2af87 100644
+--- a/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
++++ b/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
+@@ -1,3 +1,12 @@
++// UI MyLift sur mesure pour la Live Activity (remplace celle du package via
++// patch-package — les STRUCTS restent identiques au module JS, seul le
++// rendu SwiftUI change).
++//
++// Île compacte : « MyLift » côté caméra · timer réel (0:00 si aucun repos)
++// + anneau orange qui se remplit sur la fenêtre de repos côté droit.
++// Île étendue / écran verrouillé : marque, exo + cible + machine (sous-titre
++// fourni par l'app), grand timer, barre orange, boutons Start/Pause/Reset
++// (deep links mylift://timer/… interceptés par l'app).
+ import ActivityKit
+ import SwiftUI
+ import WidgetKit
+@@ -45,125 +54,178 @@ struct LiveActivityAttributes: ActivityAttributes {
+   }
+ }
+ 
++// Scheme de l'app (mylift) lu dans l'Info.plist de l'extension
++let myliftScheme: String = {
++  guard
++    let urlTypes = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]],
++    let schemes = urlTypes.first?["CFBundleURLSchemes"] as? [String],
++    let firstScheme = schemes.first
++  else {
++    return "mylift"
++  }
++  return firstScheme
++}()
++
++func myliftURL(_ path: String) -> URL {
++  URL(string: myliftScheme + "://" + path) ?? URL(string: "mylift://" + path)!
++}
++
++let myliftCoral = Color(red: 252 / 255, green: 76 / 255, blue: 2 / 255)
++
++// Marque « MyLift » (My blanc · Lift coral)
++struct MyLiftMark: View {
++  var size: CGFloat = 12
++  var body: some View {
++    (Text("My").foregroundColor(.white) + Text("Lift").foregroundColor(myliftCoral))
++      .font(.system(size: size, weight: .heavy))
++      .lineLimit(1)
++      .minimumScaleFactor(0.6)
++  }
++}
++
++// Timer : valeur réelle si repos en cours, sinon 0:00 fixe
++struct RestTimerText: View {
++  let endDate: Double?
++  var size: CGFloat = 15
++  var body: some View {
++    Group {
++      if let endDate {
++        Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
++          .multilineTextAlignment(.trailing)
++      } else {
++        Text("0:00")
++      }
++    }
++    .font(.system(size: size, weight: .semibold).monospacedDigit())
++    .foregroundColor(.white)
++    .lineLimit(1)
++    .minimumScaleFactor(0.7)
++  }
++}
++
++// Anneau orange : se remplit sur la fenêtre de repos (2 min par défaut)
++struct RestRing: View {
++  let endDate: Double?
++  var body: some View {
++    Group {
++      if let endDate {
++        ProgressView(
++          timerInterval: Date.toTimerInterval(miliseconds: endDate),
++          countsDown: false,
++          label: { EmptyView() },
++          currentValueLabel: { EmptyView() }
++        )
++        .progressViewStyle(.circular)
++      } else {
++        Circle()
++          .stroke(myliftCoral.opacity(0.35), lineWidth: 2.5)
++      }
++    }
++    .tint(myliftCoral)
++    .frame(width: 18, height: 18)
++  }
++}
++
++// Boutons de contrôle du timer (deep links interceptés par l'app)
++struct TimerControls: View {
++  let timerRunning: Bool
++  var body: some View {
++    HStack(spacing: 8) {
++      if timerRunning {
++        controlLink(path: "timer/stop", icon: "pause.fill", label: "Pause")
++      } else {
++        controlLink(path: "timer/start", icon: "play.fill", label: "Repos")
++      }
++      controlLink(path: "timer/reset", icon: "arrow.counterclockwise", label: "Reset")
++    }
++  }
++
++  private func controlLink(path: String, icon: String, label: String) -> some View {
++    Link(destination: myliftURL(path)) {
++      HStack(spacing: 5) {
++        Image(systemName: icon).font(.system(size: 11, weight: .bold))
++        Text(label).font(.system(size: 12, weight: .bold))
++      }
++      .foregroundColor(myliftCoral)
++      .padding(.vertical, 7)
++      .padding(.horizontal, 12)
++      .background(Capsule().fill(myliftCoral.opacity(0.18)))
++    }
++  }
++}
++
+ struct LiveActivityWidget: Widget {
+   var body: some WidgetConfiguration {
+     ActivityConfiguration(for: LiveActivityAttributes.self) { context in
+       LiveActivityView(contentState: context.state, attributes: context.attributes)
+         .activityBackgroundTint(
+-          context.attributes.backgroundColor.map { Color(hex: $0) }
++          context.attributes.backgroundColor.map { Color(hex: $0) } ?? Color(red: 0.04, green: 0.04, blue: 0.07)
+         )
+-        .activitySystemActionForegroundColor(Color.black)
+-        .applyWidgetURL(from: context.attributes.deepLinkUrl)
++        .activitySystemActionForegroundColor(myliftCoral)
+     } dynamicIsland: { context in
+       DynamicIsland {
+         DynamicIslandExpandedRegion(.leading, priority: 1) {
+-          dynamicIslandExpandedLeading(title: context.state.title, subtitle: context.state.subtitle)
+-            .dynamicIsland(verticalPlacement: .belowIfTooWide)
+-            .padding(.leading, 5)
+-            .applyWidgetURL(from: context.attributes.deepLinkUrl)
++          VStack(alignment: .leading, spacing: 2) {
++            MyLiftMark(size: 11)
++            Text(context.state.title)
++              .font(.system(size: 17, weight: .bold))
++              .foregroundColor(.white)
++              .lineLimit(1)
++              .minimumScaleFactor(0.75)
++            if let subtitle = context.state.subtitle {
++              Text(subtitle)
++                .font(.system(size: 12, weight: .medium))
++                .foregroundColor(.white.opacity(0.7))
++                .lineLimit(1)
++                .minimumScaleFactor(0.75)
++            }
++          }
++          .padding(.leading, 4)
++          .dynamicIsland(verticalPlacement: .belowIfTooWide)
++          .applyWidgetURL(from: context.attributes.deepLinkUrl)
+         }
+         DynamicIslandExpandedRegion(.trailing) {
+-          if let imageName = context.state.imageName {
+-            dynamicIslandExpandedTrailing(imageName: imageName)
+-              .padding(.trailing, 5)
+-              .applyWidgetURL(from: context.attributes.deepLinkUrl)
++          VStack(alignment: .trailing, spacing: 2) {
++            RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 24)
++            Text("repos")
++              .font(.system(size: 10, weight: .semibold))
++              .foregroundColor(.white.opacity(0.55))
++              .textCase(.uppercase)
+           }
++          .padding(.trailing, 6)
++          .applyWidgetURL(from: context.attributes.deepLinkUrl)
+         }
+         DynamicIslandExpandedRegion(.bottom) {
+-          if let date = context.state.timerEndDateInMilliseconds {
+-            dynamicIslandExpandedBottom(
+-              endDate: date, progressViewTint: context.attributes.progressViewTint
+-            )
+-            .padding(.horizontal, 5)
+-            .applyWidgetURL(from: context.attributes.deepLinkUrl)
++          VStack(spacing: 10) {
++            if let date = context.state.timerEndDateInMilliseconds {
++              ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
++                .labelsHidden()
++                .tint(myliftCoral)
++            } else {
++              ProgressView(value: context.state.progress ?? 0)
++                .labelsHidden()
++                .tint(myliftCoral)
++            }
++            TimerControls(timerRunning: context.state.timerEndDateInMilliseconds != nil)
+           }
++          .padding(.horizontal, 4)
++          .padding(.top, 4)
+         }
+       } compactLeading: {
+-        if let dynamicIslandImageName = context.state.dynamicIslandImageName {
+-          resizableImage(imageName: dynamicIslandImageName)
+-            .frame(maxWidth: 23, maxHeight: 23)
+-            .applyWidgetURL(from: context.attributes.deepLinkUrl)
+-        }
++        MyLiftMark(size: 12)
++          .padding(.leading, 2)
++          .applyWidgetURL(from: context.attributes.deepLinkUrl)
+       } compactTrailing: {
+-        if let date = context.state.timerEndDateInMilliseconds {
+-          compactTimer(
+-            endDate: date,
+-            timerType: context.attributes.timerType ?? .circular,
+-            progressViewTint: context.attributes.progressViewTint
+-          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
++        HStack(spacing: 5) {
++          RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 14)
++            .frame(maxWidth: 48)
++          RestRing(endDate: context.state.timerEndDateInMilliseconds)
+         }
++        .applyWidgetURL(from: context.attributes.deepLinkUrl)
+       } minimal: {
+-        if let date = context.state.timerEndDateInMilliseconds {
+-          compactTimer(
+-            endDate: date,
+-            timerType: context.attributes.timerType ?? .circular,
+-            progressViewTint: context.attributes.progressViewTint
+-          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
+-        }
+-      }
+-    }
+-  }
+-
+-  @ViewBuilder
+-  private func compactTimer(
+-    endDate: Double,
+-    timerType: LiveActivityAttributes.DynamicIslandTimerType,
+-    progressViewTint: String?
+-  ) -> some View {
+-    if timerType == .digital {
+-      Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
+-        .font(.system(size: 15))
+-        .minimumScaleFactor(0.8)
+-        .fontWeight(.semibold)
+-        .frame(maxWidth: 60)
+-        .multilineTextAlignment(.trailing)
+-    } else {
+-      circularTimer(endDate: endDate)
+-        .tint(progressViewTint.map { Color(hex: $0) })
+-    }
+-  }
+-
+-  private func dynamicIslandExpandedLeading(title: String, subtitle: String?) -> some View {
+-    VStack(alignment: .leading) {
+-      Spacer()
+-      Text(title)
+-        .font(.title2)
+-        .foregroundStyle(.white)
+-        .fontWeight(.semibold)
+-      if let subtitle {
+-        Text(subtitle)
+-          .font(.title3)
+-          .minimumScaleFactor(0.8)
+-          .foregroundStyle(.white.opacity(0.75))
++        RestRing(endDate: context.state.timerEndDateInMilliseconds)
++          .applyWidgetURL(from: context.attributes.deepLinkUrl)
+       }
+-      Spacer()
+-    }
+-  }
+-
+-  private func dynamicIslandExpandedTrailing(imageName: String) -> some View {
+-    VStack {
+-      Spacer()
+-      resizableImage(imageName: imageName)
+-      Spacer()
+     }
+   }
+-
+-  private func dynamicIslandExpandedBottom(endDate: Double, progressViewTint: String?) -> some View {
+-    ProgressView(timerInterval: Date.toTimerInterval(miliseconds: endDate))
+-      .foregroundStyle(.white)
+-      .tint(progressViewTint.map { Color(hex: $0) })
+-      .padding(.top, 5)
+-  }
+-
+-  private func circularTimer(endDate: Double) -> some View {
+-    ProgressView(
+-      timerInterval: Date.toTimerInterval(miliseconds: endDate),
+-      countsDown: false,
+-      label: { EmptyView() },
+-      currentValueLabel: {
+-        EmptyView()
+-      }
+-    )
+-    .progressViewStyle(.circular)
+-  }
+ }

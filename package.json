@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "test:core": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' src/core/__tests__/mylift.parity.test.ts",
     "test:leak": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' scripts/leak-test.ts",
-    "seed:fake": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' scripts/seed-fake-users.ts"
+    "seed:fake": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"customConditions\":null}' scripts/seed-fake-users.ts",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -54,6 +55,7 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.10",
+    "patch-package": "^8.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   },

@@ -17,7 +17,7 @@ import { useData } from "../lib/store";
 import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
 import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
-import { updateRestTimer, clearRestTimer, updateSessionProgress } from "../lib/liveActivity";
+import { updateRestTimer, clearRestTimer, updateSessionProgress, onTimerCommand } from "../lib/liveActivity";
 
 /* ==================================================================== */
 /* Chrono global de séance                                              */
@@ -380,6 +380,14 @@ export default function SessionLive({
     onUpdateRef.current({ ...sessionRef.current, timer: { ...cur, ...partial } });
   };
 
+  // Nom de la machine active de l'exo courant (affiché sur l'écran verrouillé
+  // de la Live Activity — donnée PRIVÉE du user, jamais dans un post)
+  const activeMachineName = (ex: Any | null | undefined): string | null => {
+    if (!ex?.activeModelId) return null;
+    const m = (ex.libModels || []).find((x: Any) => x.id === ex.activeModelId);
+    return m?.name ?? null;
+  };
+
   useEffect(() => {
     if (!timerRunning) return;
     const tick = () => {
@@ -398,7 +406,7 @@ export default function SessionLive({
     persistTimer({ startedAt: timerStartRef.current, accum: timerAccumRef.current, target: timerTarget });
     // Live Activity : décompte système jusqu'à la fin du repos restant
     const remaining = Math.max(0, timerTarget - timerAccumRef.current);
-    updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000);
+    updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, activeMachineName(currentExo));
   };
   const stopTimer = () => {
     if (timerStartRef.current) {
@@ -428,11 +436,22 @@ export default function SessionLive({
       if (timerRunning && timerStartRef.current) {
         const elapsed = timerAccumRef.current + Math.floor((Date.now() - timerStartRef.current) / 1000);
         const remaining = Math.max(0, next - elapsed);
-        updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000);
+        updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, activeMachineName(currentExo));
       }
       return next;
     });
   };
+
+  // Boutons de la Live Activity (écran verrouillé / île) → mêmes handlers
+  // que les boutons in-app. Réabonné à chaque render : les closures restent
+  // fraîches, le bus ne garde qu'un handler.
+  useEffect(() => {
+    return onTimerCommand((c) => {
+      if (c === "start" && !timerRunning) startTimer();
+      else if (c === "stop" && timerRunning) stopTimer();
+      else if (c === "reset") resetTimer();
+    });
+  });
 
   const updateExo = (idx: number, updater: (ex: Any) => Any) => {
     const newExos = [...session.exercises];
@@ -580,7 +599,7 @@ export default function SessionLive({
     {
       const doneAll = newExos.reduce((a: number, e: Any) => a + (e.sets || []).filter((x: Any) => x._confirmed && isValidSet(x)).length, 0);
       const totalAll = newExos.reduce((a: number, e: Any) => a + (e.sets || []).length, 0);
-      updateSessionProgress(newExos[exIdx].exName, doneAll, totalAll, newExos[exIdx].targetWeight ?? null);
+      updateSessionProgress(newExos[exIdx].exName, doneAll, totalAll, newExos[exIdx].targetWeight ?? null, activeMachineName(newExos[exIdx]));
     }
     // Le timer ne démarre JAMAIS automatiquement (décision verrouillée v40).
 
@@ -708,7 +727,7 @@ export default function SessionLive({
       if (ex) {
         const doneAll = session.exercises.reduce((a: number, e: Any) => a + (e.sets || []).filter((x: Any) => x._confirmed && isValidSet(x)).length, 0);
         const totalAll = session.exercises.reduce((a: number, e: Any) => a + (e.sets || []).length, 0);
-        updateSessionProgress(ex.exName, doneAll, totalAll, ex.targetWeight ?? null);
+        updateSessionProgress(ex.exName, doneAll, totalAll, ex.targetWeight ?? null, activeMachineName(ex));
       }
     }
     // Le timer SURVIT au switch d'exo (pas de reset)

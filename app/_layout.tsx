@@ -56,6 +56,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile-edit" />
         <Stack.Screen name="notifs" />
         <Stack.Screen name="post/[id]" />
+        <Stack.Screen name="timer/[action]" />
         <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
         <Stack.Screen name="home" options={{ presentation: "modal" }} />
       </Stack.Protected>
