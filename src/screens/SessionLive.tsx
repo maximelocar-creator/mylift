@@ -18,6 +18,7 @@ import { exoKey, exoTimeline, isValidSet, type Any } from "../core/mylift";
 import { pad2, formatRelative } from "../lib/format";
 import { Sheet, ConfirmSheet, Btn, PickerSheet, Label, LINE, ACCENT_WASH, SUCCESS_WASH, INK4, afterSheetClose } from "../ui/kit";
 import { updateRestTimer, clearRestTimer, updateSessionProgress, onTimerCommand } from "../lib/liveActivity";
+import LWBOverlay from "../ui/LWBOverlay";
 import { getRestTarget, REST_TARGET_DEFAULT } from "../lib/restTarget";
 
 /* ==================================================================== */
@@ -299,27 +300,6 @@ function SetRow({
         )}
       </View>
     </View>
-  );
-}
-
-/* ==================================================================== */
-/* LWB overlay — célébration PR plein écran                             */
-/* ==================================================================== */
-function LWBOverlay({ pr, onClose }: { pr: Any | null; onClose: () => void }) {
-  return (
-    <Modal visible={!!pr} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(0,0,0,.9)", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <Text style={{ fontSize: 64 }}>🏆</Text>
-        <Text style={{ fontSize: 36, fontWeight: "900", letterSpacing: -1, color: C.gold, textTransform: "uppercase", marginTop: 20, textAlign: "center" }}>
-          {pr?.type === "all-time" ? "All-Time PR !" : "Rep PR !"}
-        </Text>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: C.ink2, marginTop: 8, textAlign: "center" }}>{pr?.exName}</Text>
-        <Text style={[mono, { fontSize: 22, fontWeight: "800", color: C.ink0, marginTop: 12 }]}>
-          {pr?.weight} kg × {pr?.reps}
-        </Text>
-        <Text style={{ position: "absolute", bottom: 60, color: C.ink3, fontSize: 13, fontWeight: "600" }}>Tape pour continuer</Text>
-      </Pressable>
-    </Modal>
   );
 }
 

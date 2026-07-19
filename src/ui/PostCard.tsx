@@ -6,7 +6,7 @@
 // (exercise_models) — seuls exName/weight/reps/prType sont rendus.
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Image, useWindowDimensions } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { C, L, MOTION, mono } from "../lib/theme";
 import { formatRelative, formatDur, formatNum } from "../lib/format";
@@ -17,9 +17,10 @@ import { Avatar } from "./Avatar";
 import { Chip } from "./kit";
 import type { Any } from "../core/mylift";
 
-/** Ligne like/commentaires — optimistic update, rollback si l'écriture échoue.
- *  Un like n'est visible que si le post l'est (RLS directionnelle intouchée). */
-function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
+/** État de like partagé entre la rangée sociale et le double-tap photo.
+ *  Optimistic + rollback ; un like n'est visible que si le post l'est
+ *  (RLS directionnelle intouchée). */
+function useLikeState(post: Any) {
   const { userId } = useData();
   const [liked, setLiked] = useState<boolean>(!!post.liked_by_me);
   const [count, setCount] = useState<number>(post.like_count || 0);
@@ -29,8 +30,9 @@ function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
     setCount(post.like_count || 0);
   }, [post.id, post.liked_by_me, post.like_count]);
 
-  const toggle = async () => {
+  const toggle = async (onlyLike = false) => {
     if (!userId || busy.current) return;
+    if (onlyLike && liked) return; // double-tap : ne délike jamais
     busy.current = true;
     const next = !liked;
     setLiked(next);
@@ -39,7 +41,6 @@ function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
     try {
       await social.setLiked(post.id, userId, next);
     } catch {
-      // rollback : l'écriture a échoué (offline, RLS…)
       setLiked(!next);
       setCount((c) => Math.max(0, c + (next ? -1 : 1)));
       haptic("error");
@@ -47,11 +48,28 @@ function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
       busy.current = false;
     }
   };
+  return { liked, count, toggle };
+}
+
+function SocialRow({ post, like, onOpen }: { post: Any; like: ReturnType<typeof useLikeState>; onOpen?: () => void }) {
+  const { liked, count, toggle } = like;
+  // Pop du cœur à chaque like (spring signature press-btn)
+  const pop = useSharedValue(1);
+  const prevLiked = useRef(liked);
+  useEffect(() => {
+    if (liked && !prevLiked.current) {
+      pop.value = withSequence(withSpring(1.35, MOTION.microSpring), withSpring(1, MOTION.microSpring));
+    }
+    prevLiked.current = liked;
+  }, [liked]);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 18, marginTop: 10 }}>
-      <Pressable onPress={toggle} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 }}>
-        <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? C.accent : C.ink2} />
+      <Pressable onPress={() => toggle()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 }}>
+        <Animated.View style={popStyle}>
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? C.accent : C.ink2} />
+        </Animated.View>
         {count > 0 && <Text style={[mono, { fontSize: 12.5, fontWeight: "700", color: liked ? C.accent : C.ink2 }]}>{count}</Text>}
       </Pressable>
       <Pressable onPress={onOpen} disabled={!onOpen} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 }}>
@@ -59,6 +77,30 @@ function SocialRow({ post, onOpen }: { post: Any; onOpen?: () => void }) {
         {(post.comment_count || 0) > 0 && <Text style={[mono, { fontSize: 12.5, fontWeight: "700", color: C.ink2 }]}>{post.comment_count}</Text>}
       </Pressable>
     </View>
+  );
+}
+
+/** Cœur qui éclate au centre de la photo (double-tap, façon Instagram) */
+function HeartBurst({ trigger }: { trigger: number }) {
+  const v = useSharedValue(0);
+  useEffect(() => {
+    if (trigger > 0) {
+      v.value = 0;
+      v.value = withSequence(
+        withSpring(1, { damping: 12, stiffness: 260 }),
+        withDelay(260, withTiming(0, { duration: 260 }))
+      );
+    }
+  }, [trigger]);
+  const a = useAnimatedStyle(() => ({
+    opacity: v.value,
+    transform: [{ scale: 0.4 + v.value * 0.8 }],
+  }));
+  if (trigger === 0) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }, a]}>
+      <Ionicons name="heart" size={84} color="#fff" style={{ shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12 }} />
+    </Animated.View>
   );
 }
 
@@ -79,6 +121,28 @@ export function PostCard({
   const isLift = post.type === "lift";
   const lift = post.lift_ref;
   const stats = post.lift_ref?.stats; // pour les posts séance : {durationSec, tonnage, prs}
+  const like = useLikeState(post);
+  const [burst, setBurst] = useState(0);
+  // Double-tap photo → like (jamais délike) + cœur qui éclate. Le simple tap
+  // (ouvrir le post) attend 280 ms pour laisser sa chance au double.
+  const lastTap = useRef(0);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onPhotoTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) {
+      lastTap.current = 0;
+      if (openTimer.current) clearTimeout(openTimer.current);
+      like.toggle(true);
+      setBurst((b) => b + 1);
+      haptic("medium");
+    } else {
+      lastTap.current = now;
+      if (onOpen) {
+        if (openTimer.current) clearTimeout(openTimer.current);
+        openTimer.current = setTimeout(() => onOpen(), 280);
+      }
+    }
+  };
 
   const body = (
     <View
@@ -107,13 +171,16 @@ export function PostCard({
         <Chip tone={isLift ? "gold" : undefined}>{isLift ? "🏆 Lift" : "Séance"}</Chip>
       </Pressable>
 
-      {/* PHOTO D'ABORD (décision Maxime) */}
+      {/* PHOTO D'ABORD (décision Maxime) — double-tap pour liker */}
       {!!post.image_url && (
-        <Image
-          source={{ uri: post.image_url }}
-          style={{ width: "100%", height: detail ? Math.min(width, 480) : 260, backgroundColor: C.bg3 }}
-          resizeMode="cover"
-        />
+        <Pressable onPress={onPhotoTap}>
+          <Image
+            source={{ uri: post.image_url }}
+            style={{ width: "100%", height: detail ? Math.min(width, 480) : 260, backgroundColor: C.bg3 }}
+            resizeMode="cover"
+          />
+          <HeartBurst trigger={burst} />
+        </Pressable>
       )}
 
       {/* Chiffres dessous */}
@@ -178,7 +245,7 @@ export function PostCard({
           </Text>
         )}
 
-        <SocialRow post={post} onOpen={onOpen} />
+        <SocialRow post={post} like={like} onOpen={onOpen} />
       </View>
     </View>
   );

@@ -11,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { C, L, MOTION, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
+import { useWeekStats } from "@/lib/stats";
+import { formatNum } from "@/lib/format";
 import { useActiveSession } from "@/lib/activeSession";
 import { useSocial } from "@/lib/social";
 import * as social from "@/db/social";
@@ -25,6 +27,10 @@ export default function Feed() {
   const { activeSession } = useActiveSession();
   const { incoming, unreadActivity } = useSocial();
   const badge = incoming.length + unreadActivity;
+  const week = useWeekStats();
+  const weekSessions = week.weekKPI?.curr?.sessions ?? 0;
+  const weekTonnage = week.weekKPI?.curr?.tonnage ?? 0;
+  const todayLabel = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const bottomPad = 24 + (activeSession ? 64 : 0);
   const [posts, setPosts] = useState<Any[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,6 +80,9 @@ export default function Feed() {
     >
       <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
         <View>
+          <Text style={[mono, { fontSize: 10.5, fontWeight: "700", letterSpacing: 1.4, textTransform: "uppercase", color: C.ink3, marginBottom: 3 }]}>
+            {todayLabel}
+          </Text>
           <Text style={{ fontSize: 32, fontWeight: "800", letterSpacing: -1, color: C.ink0 }}>
             My<Text style={{ color: C.accent }}>Lift</Text>
           </Text>
@@ -107,6 +116,37 @@ export default function Feed() {
           </Pressable>
         </View>
       </View>
+
+      {weekSessions > 0 && (
+        <Animated.View entering={FadeInDown.duration(MOTION.view)}>
+          <Pressable
+            onPress={() => router.navigate("/stats")}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 14,
+              padding: 14,
+              paddingHorizontal: 16,
+              backgroundColor: pressed ? L.bgHover : C.bg2,
+              borderWidth: 1,
+              borderColor: L.line,
+              borderRadius: 16,
+              marginBottom: 14,
+            })}
+          >
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: L.accentWash, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="flame" size={17} color={C.accentHi} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: C.ink0 }}>Ta semaine</Text>
+              <Text style={[mono, { fontSize: 12, color: C.ink2, marginTop: 1 }]}>
+                {weekSessions} séance{weekSessions > 1 ? "s" : ""} · {formatNum(weekTonnage / 1000, 1)} t
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={C.ink3} />
+          </Pressable>
+        </Animated.View>
+      )}
 
       {posts !== null && posts.length > 0 && posts.map((p, i) => <PostCard key={p.id} post={p} index={i} onOpen={() => router.push(`/post/${p.id}`)} onOpenUser={(id) => router.push(`/user/${id}`)} />)}
 

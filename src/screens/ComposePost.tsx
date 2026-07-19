@@ -327,7 +327,6 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
   const [published, setPublished] = useState(false);
   const shotRef = useRef(null);
   const stickerRef = useRef(null);
-  const [storyFormat, setStoryFormat] = useState(true);
 
   if (!draft) return null;
   const effTitle = title ?? draft.defaultTitle;
@@ -375,25 +374,22 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
     }
   };
 
-  const exportInstagram = async (story: boolean) => {
-    setStoryFormat(story);
+  const exportInstagram = async () => {
     haptic("light");
-    // Laisse les vues off-screen se re-rendre au bon format avant capture
+    // Laisse les vues off-screen se rendre avant capture
     await new Promise((r) => setTimeout(r, 80));
     try {
-      if (story) {
-        // 1. Tentative DIRECTE : sticker transparent posé dans l'éditeur de
-        // story Instagram (build EAS + Instagram installé). En Expo Go ou
-        // sans Instagram → false, on retombe sur le share sheet générique.
-        const stickerUri = await captureRef(stickerRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
-        if (await shareStickerToInstagramStories(stickerUri)) {
-          haptic("success");
-          return;
-        }
+      // 1. Tentative DIRECTE : sticker transparent posé dans l'éditeur de
+      // story Instagram (build EAS + Instagram installé). En Expo Go ou
+      // sans Instagram → false, on retombe sur le share sheet générique.
+      const stickerUri = await captureRef(stickerRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
+      if (await shareStickerToInstagramStories(stickerUri)) {
+        haptic("success");
+        return;
       }
-      const uri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: story ? 1920 : 1080 });
+      const uri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: 1920 });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Exporter vers Instagram" });
+        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Partager en story Instagram" });
       }
     } catch (e: any) {
       setError("Export : " + (e?.message ?? String(e)));
@@ -410,7 +406,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
       title={published ? "Publié ✓" : draft.type === "lift" ? "Partager ce lift" : "Partager la séance"}
     >
       {/* Vues hors écran, prêtes pour la capture */}
-      <ShareCard draft={draft} title={effTitle} story={storyFormat} shotRef={shotRef} />
+      <ShareCard draft={draft} title={effTitle} story shotRef={shotRef} />
       <StickerCard draft={draft} title={effTitle} shotRef={stickerRef} />
 
       {!published ? (
@@ -485,18 +481,24 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
         </View>
       ) : (
         <View>
-          <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 16, lineHeight: 19 }}>
-            Ton post est dans le feed. Tu peux aussi l'exporter en image vers Instagram (le partage ouvre le menu iOS — choisis Instagram, en story ou en
-            publication).
-          </Text>
-          <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
-            <Btn kind="gold" onPress={() => exportInstagram(true)} style={{ flex: 1 }}>
-              Story Instagram
-            </Btn>
-            <Btn kind="gold" onPress={() => exportInstagram(false)} style={{ flex: 1 }}>
-              Post carré
-            </Btn>
-          </View>
+          <Pressable
+            onPress={() => exportInstagram()}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              height: 52,
+              borderRadius: 14,
+              backgroundColor: pressed ? "#C21E5C" : "#E1306C",
+              marginBottom: 10,
+            })}
+          >
+            <Ionicons name="logo-instagram" size={22} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>
+              {draft.type === "lift" ? "Partage ton lift en story" : "Partage ta séance en story"}
+            </Text>
+          </Pressable>
           {!!error && <Text style={{ color: C.danger, fontSize: 12, marginBottom: 10 }}>{error}</Text>}
           <Btn
             kind="ghost"
