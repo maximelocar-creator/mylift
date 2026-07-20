@@ -18,6 +18,9 @@ import * as social from "../db/social";
 import { pickFromLibrary, takePhoto, uploadImage, type PickedImage } from "../lib/images";
 import { Sheet, Btn, Label, Chip, afterSheetClose } from "../ui/kit";
 import { formatDur, formatNum } from "../lib/format";
+import { Sparkline } from "../ui/Sparkline";
+import { buildSessionSticker, buildLiftSticker, bestSetOf, type SessionSticker, type LiftSticker, type CurvePoint } from "../lib/stickerData";
+import { MASCOT_URI } from "../ui/mascot";
 import type { Any } from "../core/mylift";
 
 export type PostDraft = {
@@ -26,6 +29,10 @@ export type PostDraft = {
   log_id?: string | null;
   // lift : {exName, weight, reps, prType?} · séance : {stats:{durationSec,tonnage,prs}, prList:[{exName,weight,reps,type}]}
   lift_ref: Any;
+  // Données RICHES pour le sticker Instagram (machine, détail par exo,
+  // courbes). LOCALES : jamais transmises à createPost, donc les machines
+  // ne fuitent pas dans le feed.
+  sticker?: SessionSticker | LiftSticker | null;
 };
 
 const inputStyle = {
@@ -106,68 +113,167 @@ function ShareCard({ draft, title, story, shotRef }: { draft: PostDraft; title: 
   );
 }
 
-/* Sticker story Instagram — PNG TRANSPARENT épuré (style Strava) : éléments
-   posés sur la photo de l'utilisateur, scrim léger derrière le texte pour la
-   lisibilité. Variante A séance / B lift selon draft.type. Pas de carte
-   pleine : seul le bloc de contenu porte un voile sombre arrondi. */
-function StickerCard({ draft, title, shotRef }: { draft: PostDraft; title: string; shotRef: any }) {
-  const lift = draft.type === "lift" ? draft.lift_ref : null;
-  const stats = draft.type === "session" ? draft.lift_ref?.stats : null;
-  const prList: Any[] = draft.type === "session" ? (draft.lift_ref?.prList ?? []) : [];
+/* Sticker story Instagram — PNG TRANSPARENT posé sur la photo de
+   l'utilisateur (obligatoire pour la story). Contenu défini par Maxime :
+   marque + haltère, trait orange, puis le détail de la séance ou du lift,
+   la note saisie si elle existe, et une courbe de progression orange. */
+const S_W = 380;
+
+function StickerHeader() {
   return (
-    <ViewShot ref={shotRef} options={{ format: "png", quality: 1 }} style={{ position: "absolute", left: -9999, width: 340 }}>
-      {/* Racine SANS fond → PNG transparent */}
-      <View style={{ width: 340, backgroundColor: "transparent", padding: 10 }}>
+    <View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Image source={{ uri: MASCOT_URI }} style={{ width: 26, height: 26 }} resizeMode="contain" fadeDuration={0} />
+        <Text style={{ color: C.ink0, fontSize: 19, fontWeight: "900", letterSpacing: -0.7 }}>
+          My<Text style={{ color: C.accent }}>Lift</Text>
+        </Text>
+      </View>
+      <View style={{ height: 3, backgroundColor: C.accent, borderRadius: 2, marginTop: 10, marginBottom: 14 }} />
+    </View>
+  );
+}
+
+const kickerStyle = { color: C.accentHi, fontSize: 10.5, fontWeight: "800" as const, textTransform: "uppercase" as const, letterSpacing: 2 };
+
+function StickerNote({ text }: { text?: string | null }) {
+  if (!text?.trim()) return null;
+  return (
+    <Text numberOfLines={3} style={{ color: C.ink1, fontSize: 12.5, fontStyle: "italic", lineHeight: 17, marginTop: 12 }}>
+      « {text.trim()} »
+    </Text>
+  );
+}
+
+function StickerCurve({ points, label }: { points: CurvePoint[]; label: string }) {
+  if (!points || points.length < 2) return null;
+  return (
+    <View style={{ marginTop: 14 }}>
+      <Sparkline points={points} width={S_W - 44} height={50} />
+      {!!label && (
+        <Text style={[mono, { color: C.accentHi, fontSize: 11, fontWeight: "800", marginTop: 4 }]}>{label}</Text>
+      )}
+    </View>
+  );
+}
+
+function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title: string; note?: string | null; shotRef: any }) {
+  const st = draft.sticker;
+  const session = st?.kind === "session" ? st : null;
+  const lift = st?.kind === "lift" ? st : null;
+  // Repli si les données riches manquent (ancien chemin)
+  const rawLift = draft.type === "lift" ? draft.lift_ref : null;
+
+  return (
+    <ViewShot ref={shotRef} options={{ format: "png", quality: 1 }} style={{ position: "absolute", left: -9999, width: S_W }}>
+      {/* Racine SANS fond → PNG transparent posé sur la photo */}
+      <View style={{ width: S_W, backgroundColor: "transparent", padding: 10 }}>
         <View style={{ backgroundColor: L.scrim, borderRadius: 26, padding: 22, borderWidth: 1, borderColor: L.lineStrong }}>
-          <Text style={{ color: C.ink0, fontSize: 17, fontWeight: "900", letterSpacing: -0.6 }}>
-            My<Text style={{ color: C.accent }}>Lift</Text>
-          </Text>
-          <Text style={{ color: C.ink2, fontSize: 10.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 2, marginTop: 10 }}>
-            {draft.type === "lift" ? "Nouveau record" : "Séance terminée"}
-          </Text>
-          <Text style={{ color: C.ink0, fontSize: 22, fontWeight: "900", letterSpacing: -0.7, lineHeight: 26, marginTop: 4 }} numberOfLines={2}>
-            {title}
-          </Text>
-          {lift && (
+          <StickerHeader />
+
+          {/* ---------- SÉANCE ---------- */}
+          {session && (
             <>
-              <Text style={[mono, { color: C.gold, fontSize: 38, fontWeight: "900", letterSpacing: -1.4, marginTop: 10 }]}>
-                {lift.weight} kg × {lift.reps}
+              <Text style={kickerStyle}>Séance terminée</Text>
+              <Text numberOfLines={2} style={{ color: C.ink0, fontSize: 24, fontWeight: "900", letterSpacing: -0.8, lineHeight: 27, marginTop: 4 }}>
+                {session.sessionName}
               </Text>
-              <Text style={{ color: C.ink1, fontSize: 13.5, fontWeight: "600", marginTop: 2 }}>{lift.exName}</Text>
-            </>
-          )}
-          {stats && (
-            <View style={{ flexDirection: "row", gap: 16, marginTop: 12 }}>
-              {!!stats.durationSec && (
+
+              {/* Durée / volume / PR */}
+              <View style={{ flexDirection: "row", gap: 20, marginTop: 14 }}>
                 <View>
-                  <Text style={[mono, { color: C.ink0, fontSize: 19, fontWeight: "800" }]}>{formatDur(stats.durationSec)}</Text>
+                  <Text style={[mono, { color: C.ink0, fontSize: 20, fontWeight: "800" }]}>{formatDur(session.durationSec)}</Text>
                   <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>durée</Text>
                 </View>
-              )}
-              {!!stats.tonnage && (
                 <View>
-                  <Text style={[mono, { color: C.ink0, fontSize: 19, fontWeight: "800" }]}>{formatNum(stats.tonnage / 1000, 1)} t</Text>
+                  <Text style={[mono, { color: C.ink0, fontSize: 20, fontWeight: "800" }]}>{formatNum(session.tonnage / 1000, 1)} t</Text>
                   <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>volume</Text>
                 </View>
-              )}
-              {!!stats.prs && (
                 <View>
-                  <Text style={[mono, { color: C.gold, fontSize: 19, fontWeight: "800" }]}>{stats.prs}</Text>
-                  <Text style={{ color: C.gold, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
-                    PR{stats.prs > 1 ? "s" : ""}
+                  <Text style={[mono, { color: session.prCount ? C.gold : C.ink0, fontSize: 20, fontWeight: "800" }]}>{session.prCount}</Text>
+                  <Text style={{ color: session.prCount ? C.gold : C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                    PR{session.prCount > 1 ? "s" : ""}
                   </Text>
                 </View>
+              </View>
+
+              {/* PRs détaillés */}
+              {session.prList.length > 0 && (
+                <View style={{ marginTop: 12, gap: 3 }}>
+                  {session.prList.slice(0, 3).map((pr: Any, i: number) => (
+                    <Text key={i} style={[mono, { color: C.gold, fontSize: 12, fontWeight: "800" }]}>
+                      ★ {pr.exName} · {pr.weight} kg × {pr.reps}
+                    </Text>
+                  ))}
+                </View>
               )}
-            </View>
+
+              {/* Détail par exo : nom / machine / séries / meilleure série */}
+              <View style={{ marginTop: 14, gap: 7 }}>
+                {session.exos.slice(0, 6).map((e, i) => (
+                  <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ color: C.ink0, fontSize: 12.5, fontWeight: "700" }}>
+                        {e.exName}
+                      </Text>
+                      {!!e.machineName && (
+                        <Text numberOfLines={1} style={{ color: C.ink2, fontSize: 10.5, marginTop: 1 }}>
+                          {e.machineName}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      {!!e.best && (
+                        <Text style={[mono, { color: C.ink1, fontSize: 12, fontWeight: "800" }]}>
+                          {e.best.reps} × {e.best.weight} kg
+                          {e.best.rir !== null ? ` · RIR ${e.best.rir}` : ""}
+                        </Text>
+                      )}
+                      <Text style={[mono, { color: C.ink3, fontSize: 10 }]}>
+                        {e.sets} série{e.sets > 1 ? "s" : ""}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <StickerNote text={note} />
+              <StickerCurve points={session.curve} label={session.curveLabel} />
+            </>
           )}
-          {prList.length > 0 && (
-            <View style={{ marginTop: 10, gap: 3 }}>
-              {prList.slice(0, 2).map((pr, i) => (
-                <Text key={i} style={[mono, { color: C.gold, fontSize: 12.5, fontWeight: "800" }]}>
-                  🏆 {pr.exName} · {pr.weight}×{pr.reps}
+
+          {/* ---------- LIFT ---------- */}
+          {lift && (
+            <>
+              <Text style={kickerStyle}>Nouveau record</Text>
+              <Text numberOfLines={2} style={{ color: C.ink0, fontSize: 24, fontWeight: "900", letterSpacing: -0.8, lineHeight: 27, marginTop: 4 }}>
+                {lift.exName}
+              </Text>
+              {!!lift.machineName && <Text style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>{lift.machineName}</Text>}
+              <Text style={[mono, { color: C.gold, fontSize: 34, fontWeight: "900", letterSpacing: -1.2, marginTop: 12 }]}>
+                {lift.best.reps} × {lift.best.weight} kg
+              </Text>
+              {lift.best.rir !== null && (
+                <Text style={[mono, { color: C.ink2, fontSize: 12.5, fontWeight: "700", marginTop: 2 }]}>RIR {lift.best.rir}</Text>
+              )}
+              <StickerNote text={note} />
+              <StickerCurve points={lift.curve} label={lift.curveLabel} />
+            </>
+          )}
+
+          {/* ---------- Repli (données riches absentes) ---------- */}
+          {!session && !lift && (
+            <>
+              <Text style={kickerStyle}>{draft.type === "lift" ? "Nouveau record" : "Séance terminée"}</Text>
+              <Text numberOfLines={2} style={{ color: C.ink0, fontSize: 22, fontWeight: "900", letterSpacing: -0.7, lineHeight: 26, marginTop: 4 }}>
+                {title}
+              </Text>
+              {rawLift && (
+                <Text style={[mono, { color: C.gold, fontSize: 32, fontWeight: "900", letterSpacing: -1.2, marginTop: 10 }]}>
+                  {rawLift.reps} × {rawLift.weight} kg
                 </Text>
-              ))}
-            </View>
+              )}
+              <StickerNote text={note} />
+            </>
           )}
         </View>
       </View>
@@ -175,8 +281,10 @@ function StickerCard({ draft, title, shotRef }: { draft: PostDraft; title: strin
   );
 }
 
-/* Construit le brouillon "séance complète" d'un log (payload sans machine). */
-export function sessionDraftOf(log: Any): PostDraft {
+/* Construit le brouillon "séance complète" d'un log.
+   lift_ref (envoyé au serveur) reste SANS machine ; les données riches du
+   sticker (machines, détail par exo, courbe) restent locales. */
+export function sessionDraftOf(log: Any, journalLogs?: Any[], exerciseLib?: Any[]): PostDraft {
   const prs: Any[] = log.prs || [];
   const ton = (log.exercises || []).reduce(
     (a: number, ex: Any) => a + (ex.sets || []).reduce((b: number, s: Any) => b + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0),
@@ -190,6 +298,7 @@ export function sessionDraftOf(log: Any): PostDraft {
       stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
       prList: prs.map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
     },
+    sticker: journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib) : null,
   };
 }
 
@@ -198,6 +307,7 @@ export function sessionDraftOf(log: Any): PostDraft {
    exo, PR signalé). Une seule Sheet dont le contenu commute (jamais deux
    Modals swappées), puis ComposePost s'ouvre via afterSheetClose. */
 export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; open: boolean; onClose: () => void }) {
+  const { journalLogs, exerciseLib } = useData();
   const [mode, setMode] = useState<"choose" | "lift">("choose");
   const [draft, setDraft] = useState<PostDraft | null>(null);
 
@@ -211,7 +321,7 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
       const w = parseFloat(best.weight);
       const r = parseInt(best.reps);
       const pr = (log?.prs || []).find((p: Any) => p.exName === ex.exName && parseFloat(p.weight) === w);
-      return { exName: ex.exName, weight: w, reps: r, prType: pr?.type ?? null };
+      return { exName: ex.exName, weight: w, reps: r, prType: pr?.type ?? null, exId: ex.exId ?? null, modelId: ex.modelId ?? null, ex };
     })
     .filter(Boolean);
 
@@ -232,7 +342,7 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
         {mode === "choose" ? (
           <View style={{ gap: 8 }}>
             <Pressable
-              onPress={() => log && pick(sessionDraftOf(log))}
+              onPress={() => log && pick(sessionDraftOf(log, journalLogs, exerciseLib))}
               style={({ pressed }) => ({ padding: 16, borderRadius: 14, backgroundColor: pressed ? L.bgHover : C.bg3, borderWidth: 1, borderColor: L.line })}
             >
               <Text style={{ fontSize: 15, fontWeight: "800", color: C.ink0 }}>Séance complète</Text>
@@ -274,6 +384,14 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
                     type: "lift",
                     defaultTitle: `${c.exName} · ${c.weight} kg × ${c.reps}`,
                     lift_ref: { exName: c.exName, weight: c.weight, reps: c.reps, ...(c.prType ? { prType: c.prType } : {}) },
+                    sticker: buildLiftSticker({
+                      exName: c.exName,
+                      exId: c.exId,
+                      modelId: c.modelId,
+                      best: bestSetOf(c.ex) ?? { weight: c.weight, reps: c.reps, rir: null },
+                      journalLogs,
+                      exerciseLib,
+                    }),
                   })
                 }
                 style={({ pressed }) => ({
@@ -375,6 +493,13 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
   };
 
   const exportInstagram = async () => {
+    // Photo OBLIGATOIRE pour la story (décision Maxime) — elle sert de fond
+    // plein écran sous le sticker. Le post du feed, lui, reste publiable sans.
+    if (!photo?.uri) {
+      setError("Ajoute une photo (appareil ou galerie) : elle sert de fond à ta story.");
+      haptic("warning");
+      return;
+    }
     haptic("light");
     // Laisse les vues off-screen se rendre avant capture
     await new Promise((r) => setTimeout(r, 80));
@@ -384,16 +509,13 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
       //    transparent se pose dessus (rendu façon Strava) ;
       //  - pas de photo → la carte MyLift 9:16 fait le fond (jamais le
       //    dégradé violet par défaut d'Instagram).
-      const cardUri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: 1920 });
       const stickerUri = await captureRef(stickerRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
-      const ok = photo?.uri
-        ? await shareStickerToInstagramStories(photo.uri, stickerUri) // ta photo + sticker MyLift
-        : await shareStickerToInstagramStories(cardUri); // carte MyLift plein écran
-      if (ok) {
+      if (await shareStickerToInstagramStories(photo.uri, stickerUri)) {
         haptic("success");
         return;
       }
-      const uri = cardUri;
+      // Repli (Instagram absent / Expo Go) : carte MyLift via le share sheet
+      const uri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: 1920 });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Partager en story Instagram" });
       }
@@ -413,7 +535,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
     >
       {/* Vues hors écran, prêtes pour la capture */}
       <ShareCard draft={draft} title={effTitle} story shotRef={shotRef} />
-      <StickerCard draft={draft} title={effTitle} shotRef={stickerRef} />
+      <StickerCard draft={draft} title={effTitle} note={text} shotRef={stickerRef} />
 
       {!published ? (
         <View>
@@ -497,6 +619,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           </View>
           <Pressable
             onPress={() => exportInstagram()}
+            disabled={!photo}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
@@ -505,18 +628,23 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
               height: 52,
               borderRadius: 14,
               backgroundColor: pressed ? "#C21E5C" : "#E1306C",
+              opacity: photo ? 1 : 0.45,
             })}
           >
             <Ionicons name="logo-instagram" size={22} color="#fff" />
-            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>
-              Story Instagram seulement
-            </Text>
+            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>Story Instagram seulement</Text>
           </Pressable>
+          {!photo && (
+            <Text style={{ color: C.ink3, fontSize: 11.5, textAlign: "center", marginTop: 8, lineHeight: 16 }}>
+              La story a besoin d'une photo : elle sert de fond sous ton sticker MyLift.
+            </Text>
+          )}
         </View>
       ) : (
         <View>
           <Pressable
             onPress={() => exportInstagram()}
+            disabled={!photo}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
@@ -526,6 +654,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
               borderRadius: 14,
               backgroundColor: pressed ? "#C21E5C" : "#E1306C",
               marginBottom: 10,
+              opacity: photo ? 1 : 0.45,
             })}
           >
             <Ionicons name="logo-instagram" size={22} color="#fff" />
@@ -533,6 +662,11 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
               {draft.type === "lift" ? "Partage ton lift en story" : "Partage ta séance en story"}
             </Text>
           </Pressable>
+          {!photo && (
+            <Text style={{ color: C.ink3, fontSize: 11.5, textAlign: "center", marginBottom: 10, lineHeight: 16 }}>
+              Reviens en arrière pour ajouter une photo : la story en a besoin comme fond.
+            </Text>
+          )}
           {!!error && <Text style={{ color: C.danger, fontSize: 12, marginBottom: 10 }}>{error}</Text>}
           <Btn
             kind="ghost"

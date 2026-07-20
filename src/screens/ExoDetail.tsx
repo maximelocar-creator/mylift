@@ -13,6 +13,7 @@ import { formatRelative, DOW_FR_S } from "../lib/format";
 import { Segment, Card, Chip, Label, SectionLabel, LINE, ACCENT_WASH, GOLD_WASH } from "../ui/kit";
 import { E1RMChart, IndexChart } from "../ui/charts";
 import { ComposePost, type PostDraft } from "./ComposePost";
+import { buildLiftSticker } from "../lib/stickerData";
 
 const MODEL_COLOR_HEX: Record<string, string> = {
   coral: "#FC4C02",
@@ -316,6 +317,14 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
                         type: "lift",
                         defaultTitle: `${name} · ${pr.w} kg × ${pr.r}`,
                         lift_ref: { exName: name, weight: pr.w, reps: pr.r },
+                        sticker: buildLiftSticker({
+                          exName: name,
+                          exId: baseKey.startsWith("lib:") ? baseKey.slice(4) : null,
+                          modelId: modelFilter && modelFilter !== "all" ? modelFilter : null,
+                          best: { weight: pr.w, reps: pr.r, rir: null },
+                          journalLogs,
+                          exerciseLib,
+                        }),
                       })
                     }
                     hitSlop={6}
