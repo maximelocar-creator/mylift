@@ -115,7 +115,7 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
     return vals.reduce((a: number, v: number) => a + v, 0) / vals.length;
   };
   const curve: CurvePoint[] = last
-    .map((l: Any, i: number) => ({ x: i, y: Math.round(sessionStrength(l)) }))
+    .map((l: Any, i: number) => ({ x: i, y: sessionStrength(l) })) // pas d'arrondi : une progression fine reste visible
     .filter((p: CurvePoint) => p.y > 0);
 
   // PROGRESSION = % de FORCE (décision Maxime), pas de volume : le volume
@@ -193,7 +193,7 @@ export function buildLiftSticker(opts: {
         if (!sameExo) return;
         const m = meanE1RMOf(ex); // moyenne sur toutes les séries de l'exo
         if (!m || m <= 0) return;
-        pts.push({ x: pts.length, y: Math.round(m) });
+        pts.push({ x: pts.length, y: m }); // pas d'arrondi (résolution conservée)
       });
     });
 

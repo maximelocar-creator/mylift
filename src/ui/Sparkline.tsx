@@ -20,12 +20,17 @@ export function Sparkline({
   const ys = points.map((p) => p.y);
   const min = Math.min(...ys);
   const max = Math.max(...ys);
-  const span = max - min || 1;
+  const rawSpan = max - min;
+  // Amplitude nulle (progression stable) : sans garde-fou, tous les points
+  // tombent sur la ligne du bas — ça se lit comme un effondrement alors que
+  // c'est une stagnation. On centre alors la ligne verticalement.
+  const flat = rawSpan < 1e-6;
+  const span = flat ? 1 : rawSpan;
   // Marge identique à gauche ET à droite, assez large pour que le point
   // terminal (halo compris) ne déborde jamais → courbe visuellement centrée
   const pad = strokeWidth + 6;
   const px = (i: number) => (i / (points.length - 1)) * (width - pad * 2) + pad;
-  const py = (y: number) => height - pad - ((y - min) / span) * (height - pad * 2);
+  const py = (y: number) => (flat ? height / 2 : height - pad - ((y - min) / span) * (height - pad * 2));
 
   const line = points.map((p, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(p.y).toFixed(1)}`).join(" ");
   const area = `${line} L ${px(points.length - 1).toFixed(1)} ${height} L ${px(0).toFixed(1)} ${height} Z`;
