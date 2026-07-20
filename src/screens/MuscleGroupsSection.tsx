@@ -27,6 +27,9 @@ export default function MuscleGroupsSection() {
   const data = useData();
   const { muscleGroups, subGroups, exerciseLib } = data;
 
+  // Section entière repliée par défaut : dans Réglages, la liste des 11 groupes
+  // mangeait tout l'écran. Une ligne résumé suffit tant qu'on n'édite pas.
+  const [sectionOpen, setSectionOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -114,10 +117,44 @@ export default function MuscleGroupsSection() {
     haptic("success");
   };
 
+  const totalSubs = muscleGroups.reduce((a, g) => a + subsFor(g).length, 0);
+
   return (
     <View>
+      {/* Ligne d'en-tête repliable — état fermé = 1 ligne compacte */}
+      <Pressable
+        onPress={() => {
+          setSectionOpen((o) => !o);
+          haptic("light");
+        }}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          padding: 14,
+          backgroundColor: pressed ? L.bgHover : C.bg2,
+          borderWidth: 1,
+          borderColor: L.line,
+          borderRadius: R.md,
+          marginBottom: sectionOpen ? 10 : 10,
+        })}
+      >
+        <View style={{ backgroundColor: L.accentWash, borderRadius: 8, padding: 6, borderWidth: 1, borderColor: "rgba(252,76,2,.35)" }}>
+          <Ionicons name={sectionOpen ? "chevron-up" : "chevron-down"} size={13} color={C.accentHi} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>Groupes musculaires</Text>
+          <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>
+            {muscleGroups.length} groupe{muscleGroups.length > 1 ? "s" : ""}
+            {totalSubs ? ` · ${totalSubs} sous-groupe${totalSubs > 1 ? "s" : ""}` : ""}
+          </Text>
+        </View>
+      </Pressable>
+
+      {!sectionOpen ? null : (
+      <View>
       <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 10 }}>
-        Groupes musculaires et leurs sous-groupes. Tape une ligne pour voir et éditer les sous-groupes.
+        Tape une ligne pour voir et éditer les sous-groupes.
       </Text>
       <View style={{ backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: R.md, overflow: "hidden", marginBottom: 10 }}>
         {muscleGroups.map((g, i) => {
@@ -227,6 +264,8 @@ export default function MuscleGroupsSection() {
       <Btn full onPress={() => setAddOpen(true)}>
         ＋ Nouveau groupe
       </Btn>
+      </View>
+      )}
 
       {/* Nouveau groupe */}
       <Sheet

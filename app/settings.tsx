@@ -256,9 +256,10 @@ export default function Params() {
         </View>
       )}
 
-      {/* Groupes musculaires */}
-      <SectionLabel>Groupes musculaires</SectionLabel>
-      <MuscleGroupsSection />
+      {/* Groupes musculaires — la section porte son propre en-tête repliable */}
+      <View style={{ marginTop: 18 }}>
+        <MuscleGroupsSection />
+      </View>
 
       {/* Timer de repos */}
       <SectionLabel>Séance</SectionLabel>

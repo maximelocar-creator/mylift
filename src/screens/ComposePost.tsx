@@ -481,6 +481,31 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           <Btn full onPress={publish} disabled={busy || !effTitle.trim()}>
             {busy ? "Publication…" : "Publier dans le feed"}
           </Btn>
+
+          {/* Story Instagram SANS publier dans le feed — les deux chemins sont
+              indépendants (décision Maxime : story directe possible seule) */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: L.line }} />
+            <Text style={{ color: C.ink3, fontSize: 11 }}>ou</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: L.line }} />
+          </View>
+          <Pressable
+            onPress={() => exportInstagram()}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              height: 52,
+              borderRadius: 14,
+              backgroundColor: pressed ? "#C21E5C" : "#E1306C",
+            })}
+          >
+            <Ionicons name="logo-instagram" size={22} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>
+              Story Instagram seulement
+            </Text>
+          </Pressable>
         </View>
       ) : (
         <View>
