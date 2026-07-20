@@ -87,7 +87,7 @@ export function startSessionActivity(sessionName: string): void {
     }
     activityId =
       LA.startActivity(
-        { title: baseTitle, subtitle: "Échauffe-toi 💪", progressBar: { progress: 0 } },
+        { title: baseTitle, subtitle: "Séance en cours", progressBar: { progress: 0 } },
         CONFIG
       ) || null;
   } catch {
@@ -107,13 +107,13 @@ export function updateSessionProgress(
 ): void {
   if (!LA || !activityId) return;
   try {
-    const w = nextWeight !== null && nextWeight !== undefined && nextWeight !== "" ? ` · ${nextWeight} kg` : "";
-    const allDone = totalSets > 0 && doneSets >= totalSets;
+    // Écran verrouillé (hors repos) : exo (titre) · Cible N kg · machine.
+    // Jamais « Série X/Y » — Maxime préfère l'info actionnable. La barre
+    // porte quand même la progression réelle (doneSets/totalSets).
+    const w = nextWeight !== null && nextWeight !== undefined && nextWeight !== "" ? `Cible ${nextWeight} kg` : "En cours";
     const state = {
       title: exName || baseTitle,
-      subtitle: allDone
-        ? "Exo terminé ✓ — enchaîne !"
-        : withMachine(`Série ${Math.min(doneSets + 1, totalSets)}/${totalSets}${w}`, machineName),
+      subtitle: withMachine(w, machineName),
       progress: totalSets > 0 ? Math.min(1, doneSets / totalSets) : 0,
     };
     lastProgressState = state;
@@ -131,7 +131,7 @@ export function updateRestTimer(
 ): void {
   if (!LA || !activityId) return;
   try {
-    const w = targetWeight !== null && targetWeight !== undefined && targetWeight !== "" ? `cible ${targetWeight} kg` : null;
+    const w = targetWeight !== null && targetWeight !== undefined && targetWeight !== "" ? `Cible ${targetWeight} kg` : null;
     LA.updateActivity(activityId, {
       title: exName || baseTitle,
       subtitle: withMachine(w ?? "Repos", machineName),
@@ -160,7 +160,7 @@ export function clearRestTimer(exName?: string | null): void {
 export function endSessionActivity(): void {
   if (!LA || !activityId) return;
   try {
-    LA.stopActivity(activityId, { title: baseTitle, subtitle: "Séance terminée 🎉", progressBar: { progress: 1 } });
+    LA.stopActivity(activityId, { title: baseTitle, subtitle: "Séance terminée", progressBar: { progress: 1 } });
   } catch {}
   activityId = null;
 }

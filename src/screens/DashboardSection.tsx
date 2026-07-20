@@ -200,7 +200,7 @@ export default function DashboardSection() {
                     {it.name}
                   </Text>
                   <Text style={[mono, { fontSize: 12, fontWeight: "700", color: it.deltaPct > 0 ? C.success : C.ink3 }]}>
-                    {(it.deltaPct >= 0 ? "+" : "") + it.deltaPct.toFixed(1)}%{it.hasAllTimePR ? " 🏆" : ""}
+                    {(it.deltaPct >= 0 ? "+" : "") + it.deltaPct.toFixed(1)}%{it.hasAllTimePR ? " ★" : ""}
                   </Text>
                 </View>
               ))}

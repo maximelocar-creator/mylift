@@ -1,6 +1,7 @@
 // Récap post-séance plein écran (version RN du SessionRecapFull v40) :
 // kicker ✓, hero tonnage, KPIs secondaires, célébration PR, volume par muscle.
 import { View, Text, Pressable, ScrollView, Modal } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { C, L, MOTION, mono } from "../lib/theme";
@@ -104,7 +105,7 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 18 }}>🏆</Text>
+                  <Ionicons name="trophy" size={19} color="#2A1800" />
                 </View>
                 <View>
                   <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.6, textTransform: "uppercase", color: C.gold }}>
@@ -115,10 +116,12 @@ export default function SessionRecap({ log, onClose }: { log: Any; onClose: () =
               </View>
               {prs.map((pr: Any, i: number) => (
                 <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: "rgba(255,194,51,.15)" }}>
-                  <Text numberOfLines={1} style={{ fontWeight: "600", color: C.ink1, fontSize: 13, flex: 1, marginRight: 10 }}>
-                    {pr.type === "all-time" ? "🥇 " : "🔁 "}
-                    {pr.exName}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1, marginRight: 10 }}>
+                    <Ionicons name={pr.type === "all-time" ? "medal" : "repeat"} size={13} color={C.gold} />
+                    <Text numberOfLines={1} style={{ fontWeight: "600", color: C.ink1, fontSize: 13, flex: 1 }}>
+                      {pr.exName}
+                    </Text>
+                  </View>
                   <Text style={[mono, { fontWeight: "800", color: C.gold, fontSize: 14 }]}>
                     {pr.weight} kg × {pr.reps}
                   </Text>

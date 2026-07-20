@@ -6,7 +6,7 @@
 // (exercise_models) — seuls exName/weight/reps/prType sont rendus.
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Image, useWindowDimensions } from "react-native";
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay } from "react-native-reanimated";
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay, interpolate, Easing } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { C, L, MOTION, mono } from "../lib/theme";
 import { formatRelative, formatDur, formatNum } from "../lib/format";
@@ -80,26 +80,27 @@ function SocialRow({ post, like, onOpen }: { post: Any; like: ReturnType<typeof 
   );
 }
 
-/** Cœur qui éclate au centre de la photo (double-tap, façon Instagram) */
+/** Cœur qui éclate au centre de la carte (double-tap, façon Instagram) :
+ *  apparition rapide avec léger dépassement, brève tenue, disparition nette. */
 function HeartBurst({ trigger }: { trigger: number }) {
   const v = useSharedValue(0);
   useEffect(() => {
     if (trigger > 0) {
       v.value = 0;
       v.value = withSequence(
-        withSpring(1, { damping: 12, stiffness: 260 }),
-        withDelay(260, withTiming(0, { duration: 260 }))
+        withTiming(1, { duration: 130, easing: Easing.out(Easing.back(2)) }),
+        withDelay(110, withTiming(0, { duration: 170, easing: Easing.in(Easing.quad) }))
       );
     }
   }, [trigger]);
   const a = useAnimatedStyle(() => ({
-    opacity: v.value,
-    transform: [{ scale: 0.4 + v.value * 0.8 }],
+    opacity: interpolate(v.value, [0, 0.25, 1], [0, 1, 1]),
+    transform: [{ scale: interpolate(v.value, [0, 1], [0.3, 1]) }],
   }));
   if (trigger === 0) return null;
   return (
-    <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }, a]}>
-      <Ionicons name="heart" size={84} color="#fff" style={{ shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12 }} />
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", zIndex: 5 }, a]}>
+      <Ionicons name="heart" size={92} color="#fff" style={{ textShadowColor: "rgba(0,0,0,.45)", textShadowRadius: 16, textShadowOffset: { width: 0, height: 2 } }} />
     </Animated.View>
   );
 }
@@ -123,15 +124,20 @@ export function PostCard({
   const stats = post.lift_ref?.stats; // pour les posts séance : {durationSec, tonnage, prs}
   const like = useLikeState(post);
   const [burst, setBurst] = useState(0);
-  // Double-tap photo → like (jamais délike) + cœur qui éclate. Le simple tap
-  // (ouvrir le post) attend 280 ms pour laisser sa chance au double.
+  // UN SEUL point de tap au niveau carte (avec ou sans photo) : simple tap
+  // ouvre le post (différé pour laisser sa chance au double), double-tap like
+  // (jamais délike) + cœur qui éclate. Fini le double-open (plus de Pressable
+  // parent qui ouvrait en plus du tap photo).
   const lastTap = useRef(0);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onPhotoTap = () => {
+  const handleCardTap = () => {
     const now = Date.now();
-    if (now - lastTap.current < 280) {
+    if (now - lastTap.current < 260) {
       lastTap.current = 0;
-      if (openTimer.current) clearTimeout(openTimer.current);
+      if (openTimer.current) {
+        clearTimeout(openTimer.current);
+        openTimer.current = null;
+      }
       like.toggle(true);
       setBurst((b) => b + 1);
       haptic("medium");
@@ -139,7 +145,10 @@ export function PostCard({
       lastTap.current = now;
       if (onOpen) {
         if (openTimer.current) clearTimeout(openTimer.current);
-        openTimer.current = setTimeout(() => onOpen(), 280);
+        openTimer.current = setTimeout(() => {
+          openTimer.current = null;
+          onOpen();
+        }, 260);
       }
     }
   };
@@ -168,19 +177,16 @@ export function PostCard({
           </Text>
           <Text style={{ fontSize: 10.5, color: C.ink3, marginTop: 1 }}>{formatRelative(post.created_at?.slice(0, 10))}</Text>
         </View>
-        <Chip tone={isLift ? "gold" : undefined}>{isLift ? "🏆 Lift" : "Séance"}</Chip>
+        <Chip tone={isLift ? "gold" : undefined}>{isLift ? "Lift" : "Séance"}</Chip>
       </Pressable>
 
-      {/* PHOTO D'ABORD (décision Maxime) — double-tap pour liker */}
+      {/* PHOTO D'ABORD (décision Maxime) */}
       {!!post.image_url && (
-        <Pressable onPress={onPhotoTap}>
-          <Image
-            source={{ uri: post.image_url }}
-            style={{ width: "100%", height: detail ? Math.min(width, 480) : 260, backgroundColor: C.bg3 }}
-            resizeMode="cover"
-          />
-          <HeartBurst trigger={burst} />
-        </Pressable>
+        <Image
+          source={{ uri: post.image_url }}
+          style={{ width: "100%", height: detail ? Math.min(width, 480) : 260, backgroundColor: C.bg3 }}
+          resizeMode="cover"
+        />
       )}
 
       {/* Chiffres dessous */}
@@ -209,30 +215,37 @@ export function PostCard({
           </View>
         )}
         {!isLift && !!stats && (
-          <View style={{ flexDirection: "row", gap: 14, marginBottom: 8, paddingVertical: post.image_url ? 0 : 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 8, paddingVertical: post.image_url ? 0 : 6 }}>
             {!!stats.durationSec && (
-              <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>
-                ⏱ {formatDur(stats.durationSec)}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="time-outline" size={13} color={C.ink2} />
+                <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>{formatDur(stats.durationSec)}</Text>
+              </View>
             )}
             {!!stats.tonnage && (
-              <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>
-                {formatNum(stats.tonnage / 1000, 1)} t
-              </Text>
+              <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>{formatNum(stats.tonnage / 1000, 1)} t</Text>
             )}
             {!!stats.prs && stats.prs > 0 && (
-              <Text style={[mono, { fontSize: 13, fontWeight: "800", color: C.gold }]}>🏆 {stats.prs} PR{stats.prs > 1 ? "s" : ""}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="trophy" size={13} color={C.gold} />
+                <Text style={[mono, { fontSize: 13, fontWeight: "800", color: C.gold }]}>
+                  {stats.prs} PR{stats.prs > 1 ? "s" : ""}
+                </Text>
+              </View>
             )}
           </View>
         )}
 
         {!isLift && (post.lift_ref?.prList?.length ?? 0) > 0 && (
-          <View style={{ marginBottom: 8, gap: 3 }}>
+          <View style={{ marginBottom: 8, gap: 4 }}>
             {post.lift_ref.prList.slice(0, 4).map((pr: Any, i: number) => (
-              <Text key={i} style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
-                🏆 {pr.exName} · {pr.weight}×{pr.reps}
-                {pr.type === "all-time" ? " · all-time" : pr.type === "rep" ? " · rep PR" : ""}
-              </Text>
+              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Ionicons name="trophy" size={12} color={C.gold} />
+                <Text style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
+                  {pr.exName} · {pr.weight}×{pr.reps}
+                  {pr.type === "all-time" ? " · all-time" : pr.type === "rep" ? " · rep PR" : ""}
+                </Text>
+              </View>
             ))}
           </View>
         )}
@@ -247,12 +260,15 @@ export function PostCard({
 
         <SocialRow post={post} like={like} onOpen={onOpen} />
       </View>
+
+      {/* Cœur de double-tap — couvre toute la carte (posts avec ou sans photo) */}
+      <HeartBurst trigger={burst} />
     </View>
   );
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index * 50, 300)).duration(MOTION.view)}>
-      {onOpen ? <Pressable onPress={onOpen}>{body}</Pressable> : body}
+      {onOpen ? <Pressable onPress={handleCardTap}>{body}</Pressable> : body}
     </Animated.View>
   );
 }

@@ -186,7 +186,11 @@ export default function Notifs() {
                   )}
                   <Text style={{ fontSize: 10.5, color: C.ink3, marginTop: 2 }}>{formatRelative(String(n.created_at).slice(0, 10))}</Text>
                 </View>
-                <Text style={{ fontSize: 16 }}>{n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : "🤝"}</Text>
+                <Ionicons
+                  name={n.type === "like" ? "heart" : n.type === "comment" ? "chatbubble" : "people"}
+                  size={17}
+                  color={n.type === "like" ? C.accent : n.type === "comment" ? C.ink2 : C.success}
+                />
               </Pressable>
             ))}
           </View>

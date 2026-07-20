@@ -244,12 +244,12 @@ export default function Onboarding() {
                 marginBottom: 10,
               })}
             >
-              <Text style={{ fontSize: 26, marginBottom: 8 }}>🧠</Text>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: L.accentWash, alignItems: "center", justifyContent: "center", marginBottom: 12 }}><Ionicons name="sparkles" size={24} color={C.accentHi} /></View>
               <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink0 }}>Générer automatiquement</Text>
               <Text style={{ fontSize: 13, color: C.ink2, marginTop: 4, lineHeight: 18 }}>
                 Quelques questions (niveau, fréquence, muscles prioritaires) et MyLift construit un programme adapté.
               </Text>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: C.accentHi, marginTop: 10 }}>Recommandé pour commencer →</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: C.accentHi, marginTop: 10 }}>Recommandé pour commencer</Text>
             </Pressable>
 
             <Pressable
@@ -267,7 +267,7 @@ export default function Onboarding() {
                 marginBottom: 20,
               })}
             >
-              <Text style={{ fontSize: 26, marginBottom: 8 }}>✏️</Text>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: L.accentWash, alignItems: "center", justifyContent: "center", marginBottom: 12 }}><Ionicons name="create-outline" size={24} color={C.accentHi} /></View>
               <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink0 }}>Créer manuellement</Text>
               <Text style={{ fontSize: 13, color: C.ink2, marginTop: 4, lineHeight: 18 }}>
                 Nomme ton programme puis compose tes séances exo par exo, avec variantes et cibles.
@@ -288,7 +288,7 @@ export default function Onboarding() {
 
         {step === 3 && (
           <Animated.View entering={FadeIn.duration(MOTION.view)}>
-            <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
+            <Ionicons name="sparkles" size={40} color={C.accentHi} style={{ marginBottom: 12 }} />
             <Text style={{ fontSize: 20, fontWeight: "800", color: C.ink0, marginBottom: 4 }}>Bienvenue, @{profile?.username} !</Text>
             <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 24, lineHeight: 19 }}>
               Ton programme <Text style={{ fontWeight: "700", color: C.ink1 }}>{programs[0]?.name}</Text> est prêt. Dernière chose : MyLift est plus motivant
@@ -309,7 +309,7 @@ export default function Onboarding() {
                 marginBottom: 20,
               })}
             >
-              <Text style={{ fontSize: 26, marginBottom: 8 }}>👥</Text>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: L.accentWash, alignItems: "center", justifyContent: "center", marginBottom: 12 }}><Ionicons name="people-outline" size={24} color={C.accentHi} /></View>
               <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink0 }}>Ajouter des amis</Text>
               <Text style={{ fontSize: 13, color: C.ink2, marginTop: 4, lineHeight: 18 }}>
                 Cherche-les par username et envoie une demande. Tu pourras aussi te faire scanner via ton QR code, sur ton profil.

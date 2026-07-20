@@ -353,7 +353,7 @@ export default function Params() {
           }}
           style={{ marginBottom: 8 }}
         >
-          🧠 Générateur auto
+          Générateur auto
         </Btn>
         <Btn
           kind="ghost"
@@ -365,7 +365,7 @@ export default function Params() {
             afterSheetClose(() => setNewProgOpen(true));
           }}
         >
-          ✏️ Programme vide
+          Programme vide
         </Btn>
       </Sheet>
 

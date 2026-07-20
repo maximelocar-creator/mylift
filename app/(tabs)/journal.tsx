@@ -293,7 +293,7 @@ function HistoryDetail({ log, onDelete, onUpdate, onShare }: { log: Any; onDelet
       {!editMode ? (
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
           <Btn kind="ghost" sm onPress={enterEdit} style={{ flex: 1 }}>
-            ✎ Modifier les séries
+            Modifier les séries
           </Btn>
           <Btn sm onPress={onShare} style={{ flex: 1 }}>
             Partager
@@ -346,9 +346,12 @@ function HistoryDetail({ log, onDelete, onUpdate, onShare }: { log: Any; onDelet
       {!editMode && (view.prs || []).length > 0 && (
         <View style={{ marginBottom: 14, padding: 12, backgroundColor: "rgba(255,194,51,.08)", borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,194,51,.25)" }}>
           {(view.prs || []).map((pr: Any, i: number) => (
-            <Text key={i} style={[mono, { fontSize: 12, color: C.gold, fontWeight: "700", paddingVertical: 2 }]}>
-              🏆 {pr.type === "all-time" || pr.type === "allTime" ? "All-time" : "Rep PR"} · {pr.exName} · {pr.weight} kg × {pr.reps}
-            </Text>
+            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2 }}>
+              <Ionicons name="trophy" size={12} color={C.gold} />
+              <Text style={[mono, { fontSize: 12, color: C.gold, fontWeight: "700" }]}>
+                {pr.type === "all-time" || pr.type === "allTime" ? "All-time" : "Rep PR"} · {pr.exName} · {pr.weight} kg × {pr.reps}
+              </Text>
+            </View>
           ))}
         </View>
       )}
@@ -468,13 +471,13 @@ export default function Journal() {
 
       {!currentProgram && (
         <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
-          <Text style={{ fontSize: 32 }}>🏋️</Text>
+          <Ionicons name="barbell-outline" size={38} color={C.ink3} />
           <Text style={{ fontSize: 15, fontWeight: "700", color: C.ink1 }}>Pas encore de programme</Text>
           <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", marginBottom: 12 }}>
             Crée ton premier programme : le générateur construit tes séances selon ton niveau et tes muscles prioritaires.
           </Text>
           <Btn full onPress={() => router.push("/generator")}>
-            🧠 Générer mon programme
+            Générer mon programme
           </Btn>
           <Btn kind="ghost" full onPress={() => router.push("/settings")}>
             Créer un programme vide
@@ -563,7 +566,7 @@ export default function Journal() {
                   <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>{s.name}</Text>
                   <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>
                     {(s.exercises || []).length} exos{dAgo !== null ? ` · il y a ${dAgo}j` : " · jamais faite"}
-                    {sNote ? " · note ✎" : ""}
+                    {sNote ? " · note" : ""}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -626,7 +629,7 @@ export default function Journal() {
                     setNoteEdit(null);
                   }}
                 >
-                  🗑
+                  <Ionicons name="trash-outline" size={15} color={C.ink1} />
                 </Btn>
               )}
               <Btn

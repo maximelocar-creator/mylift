@@ -422,17 +422,20 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           )}
           {stats && (
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-              {!!stats.durationSec && <Chip>⏱ {formatDur(stats.durationSec)}</Chip>}
+              {!!stats.durationSec && <Chip>{formatDur(stats.durationSec)}</Chip>}
               {!!stats.tonnage && <Chip>{formatNum(stats.tonnage / 1000, 1)} t</Chip>}
-              {!!stats.prs && <Chip tone="gold">🏆 {stats.prs} PR{stats.prs > 1 ? "s" : ""}</Chip>}
+              {!!stats.prs && <Chip tone="gold">{stats.prs} PR{stats.prs > 1 ? "s" : ""}</Chip>}
             </View>
           )}
           {prList.length > 0 && (
-            <View style={{ marginBottom: 12, gap: 3 }}>
+            <View style={{ marginBottom: 12, gap: 4 }}>
               {prList.map((pr, i) => (
-                <Text key={i} style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
-                  🏆 {pr.exName} · {pr.weight}×{pr.reps}
-                </Text>
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Ionicons name="trophy" size={12} color={C.gold} />
+                  <Text style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
+                    {pr.exName} · {pr.weight}×{pr.reps}
+                  </Text>
+                </View>
               ))}
             </View>
           )}

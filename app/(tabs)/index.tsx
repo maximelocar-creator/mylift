@@ -120,7 +120,10 @@ export default function Feed() {
       {weekSessions > 0 && (
         <Animated.View entering={FadeInDown.duration(MOTION.view)}>
           <Pressable
-            onPress={() => router.navigate("/stats")}
+            onPress={async () => {
+              await AsyncStorage.setItem("mylift_stats_view", "dashboard");
+              router.navigate("/stats");
+            }}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
@@ -155,7 +158,7 @@ export default function Feed() {
           entering={FadeInDown.duration(MOTION.view)}
           style={{ alignItems: "center", padding: 32, backgroundColor: C.bg2, borderWidth: 1, borderColor: L.line, borderRadius: 22, gap: 8 }}
         >
-          <Text style={{ fontSize: 40 }}>📭</Text>
+          <Ionicons name="newspaper-outline" size={42} color={C.ink3} />
           <Text style={{ fontSize: 16, fontWeight: "700", color: C.ink0 }}>Aucun post pour l'instant</Text>
           <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", lineHeight: 18, marginBottom: 8 }}>
             Suis des utilisateurs pour voir leurs séances et leurs PRs ici.
