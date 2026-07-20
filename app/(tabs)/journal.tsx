@@ -71,9 +71,14 @@ function SessionCard({
     >
       {recommended && (
         <>
-          {/* Voile chaud en tête de carte, fondu vers le fond */}
-          <View style={{ position: "absolute", left: 0, right: 0, top: 0, height: 64, backgroundColor: ACCENT_WASH }} />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          {/* Voile chaud en tête de carte — fondu progressif (bandes dégressives)
+              pour qu'il n'y ait AUCUNE arête nette au niveau du nom de séance */}
+          <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
+            {[0.13, 0.1, 0.07, 0.045, 0.025, 0.012].map((o, i) => (
+              <View key={i} style={{ height: 9, backgroundColor: `rgba(252,76,2,${o})` }} />
+            ))}
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 18 }}>
             <Ionicons name="sparkles" size={11} color={C.accentHi} />
             <Text style={[mono, { fontSize: 10, fontWeight: "800", letterSpacing: 1.6, textTransform: "uppercase", color: C.accentHi }]}>
               Recommandée aujourd'hui
@@ -81,7 +86,7 @@ function SessionCard({
           </View>
         </>
       )}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontSize: recommended ? 22 : 18, fontWeight: "800", letterSpacing: recommended ? -0.7 : -0.3, color: C.ink0, marginBottom: 2 }}>
             {session.name}
@@ -91,7 +96,21 @@ function SessionCard({
             {lastLog ? " · " + formatRelative(lastLog.date) : " · jamais fait"}
           </Text>
         </View>
-        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color={C.ink3} />
+        {/* Affordance de dépli : pastille coral bien visible */}
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 10,
+            backgroundColor: ACCENT_WASH,
+            borderWidth: 1,
+            borderColor: "rgba(252,76,2,.4)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={15} color={C.accentHi} />
+        </View>
       </View>
 
       {!expanded && topExos.length > 0 && recommended && (
