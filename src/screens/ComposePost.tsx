@@ -363,6 +363,25 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
       <Sheet open={open} onClose={closeChooser} title={mode === "choose" ? "Partager" : "Choisir le lift"}>
         {mode === "choose" ? (
           <View style={{ gap: 8 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                padding: 11,
+                borderRadius: 12,
+                backgroundColor: "rgba(225,48,108,.12)",
+                borderWidth: 1,
+                borderColor: "rgba(225,48,108,.35)",
+                marginBottom: 2,
+              }}
+            >
+              <Ionicons name="logo-instagram" size={15} color="#E1306C" />
+              <Text style={{ flex: 1, fontSize: 11.5, color: C.ink1, lineHeight: 16 }}>
+                Story Instagram : une <Text style={{ fontWeight: "800" }}>photo est obligatoire</Text> (elle sert de fond). Le post
+                dans le feed, lui, marche sans.
+              </Text>
+            </View>
             <Pressable
               onPress={() => log && pick(sessionDraftOf(log, journalLogs, exerciseLib))}
               style={({ pressed }) => ({ padding: 16, borderRadius: 14, backgroundColor: pressed ? L.bgHover : C.bg3, borderWidth: 1, borderColor: L.line })}
@@ -614,7 +633,7 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
           />
 
           {/* Photo : appareil OU galerie */}
-          <Label style={{ marginBottom: 8 }}>Photo (optionnel)</Label>
+          <Label style={{ marginBottom: 8 }}>Photo {photo ? "" : "· obligatoire pour la story"}</Label>
           {photo ? (
             <View style={{ marginBottom: 14 }}>
               <Image source={{ uri: photo.uri }} style={{ width: "100%", height: 180, borderRadius: 12, backgroundColor: C.bg3 }} resizeMode="cover" />

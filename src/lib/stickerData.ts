@@ -21,7 +21,7 @@ export type SessionSticker = {
   prevTonnage: number | null; // tonnage de la dernière fois (même séance)
   strengthPct: number | null; // % de FORCE vs la séance précédente (e1RM, exos communs)
   strengthBasis: number; // nb d'exos comparés (transparence)
-  curve: CurvePoint[]; // tonnage des dernières fois que CETTE séance a été faite
+  curve: CurvePoint[]; // FORCE (e1RM moyen) des dernières fois que CETTE séance a été faite
   curveLabel: string;
 };
 
@@ -101,7 +101,22 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
     .sort((a: Any, b: Any) => (a.date || "").localeCompare(b.date || ""));
   const withCurrent = sameSession.some((l: Any) => l.id === log.id) ? sameSession : [...sameSession, log];
   const last = withCurrent.slice(-6);
-  const curve: CurvePoint[] = last.map((l: Any, i: number) => ({ x: i, y: tonnageOf(l) }));
+
+  // La COURBE mesure la même chose que le % affiché dessous : la FORCE.
+  // Chaque point = e1RM moyen de la séance (moyenne, sur ses exos, de
+  // l'e1RM moyen de toutes leurs séries). Avant, la courbe montrait le
+  // volume alors que le % montrait la force : les deux pouvaient partir
+  // dans des sens opposés (séance plus courte mais plus lourde).
+  const sessionStrength = (l: Any): number => {
+    const vals = (l.exercises || [])
+      .map((ex: Any) => meanE1RMOf(ex))
+      .filter((v: number | null): v is number => v !== null && v > 0);
+    if (!vals.length) return 0;
+    return vals.reduce((a: number, v: number) => a + v, 0) / vals.length;
+  };
+  const curve: CurvePoint[] = last
+    .map((l: Any, i: number) => ({ x: i, y: Math.round(sessionStrength(l)) }))
+    .filter((p: CurvePoint) => p.y > 0);
 
   // PROGRESSION = % de FORCE (décision Maxime), pas de volume : le volume
   // s'effondrait dès qu'une séance était écourtée (le fameux -68%).
@@ -131,7 +146,7 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
     if (ratios.length) strengthPct = Math.round((ratios.reduce((a, r) => a + r, 0) / ratios.length) * 100);
   }
 
-  const prevTonnage: number | null = curve.length >= 2 ? curve[curve.length - 2].y : null;
+  const prevTonnage: number | null = prevLog ? tonnageOf(prevLog) : null;
   const curveLabel =
     strengthPct !== null ? `${strengthPct >= 0 ? "+" : ""}${strengthPct}% de force vs la dernière fois` : "";
 
