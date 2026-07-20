@@ -21,7 +21,9 @@ export function Sparkline({
   const min = Math.min(...ys);
   const max = Math.max(...ys);
   const span = max - min || 1;
-  const pad = strokeWidth + 2;
+  // Marge identique à gauche ET à droite, assez large pour que le point
+  // terminal (halo compris) ne déborde jamais → courbe visuellement centrée
+  const pad = strokeWidth + 6;
   const px = (i: number) => (i / (points.length - 1)) * (width - pad * 2) + pad;
   const py = (y: number) => height - pad - ((y - min) / span) * (height - pad * 2);
 

@@ -23,7 +23,6 @@ import { Sheet, Btn, Label, Chip, afterSheetClose } from "../ui/kit";
 import { formatDur, formatNum } from "../lib/format";
 import { Sparkline } from "../ui/Sparkline";
 import { buildSessionSticker, buildLiftSticker, bestSetOf, machineNameOf, type SessionSticker, type LiftSticker, type CurvePoint } from "../lib/stickerData";
-import { MASCOT_URI } from "../ui/mascot";
 import type { Any } from "../core/mylift";
 
 export type PostDraft = {
@@ -121,12 +120,15 @@ function ShareCard({ draft, title, story, shotRef }: { draft: PostDraft; title: 
    marque + haltère, trait orange, puis le détail de la séance ou du lift,
    la note saisie si elle existe, et une courbe de progression orange. */
 const S_W = 380;
+const S_PAD_OUT = 10;
+const S_PAD_CARD = 22;
+const S_CONTENT = S_W - S_PAD_OUT * 2 - S_PAD_CARD * 2; // largeur utile réelle
 
 function StickerHeader() {
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Image source={{ uri: MASCOT_URI }} style={{ width: 26, height: 26 }} resizeMode="contain" fadeDuration={0} />
+        <Ionicons name="barbell" size={22} color={C.accent} />
         <Text style={{ color: C.ink0, fontSize: 19, fontWeight: "900", letterSpacing: -0.7 }}>
           My<Text style={{ color: C.accent }}>Lift</Text>
         </Text>
@@ -151,7 +153,7 @@ function StickerCurve({ points, label }: { points: CurvePoint[]; label: string }
   if (!points || points.length < 2) return null;
   return (
     <View style={{ marginTop: 14 }}>
-      <Sparkline points={points} width={S_W - 44} height={50} />
+      <Sparkline points={points} width={S_CONTENT} height={52} />
       {!!label && (
         <Text style={[mono, { color: C.accentHi, fontSize: 11, fontWeight: "800", marginTop: 4 }]}>{label}</Text>
       )}
@@ -169,8 +171,8 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
   return (
     <ViewShot ref={shotRef} options={{ format: "png", quality: 1 }} style={{ position: "absolute", left: -9999, width: S_W }}>
       {/* Racine SANS fond → PNG transparent posé sur la photo */}
-      <View style={{ width: S_W, backgroundColor: "transparent", padding: 10 }}>
-        <View style={{ backgroundColor: L.scrim, borderRadius: 26, padding: 22, borderWidth: 1, borderColor: L.lineStrong }}>
+      <View style={{ width: S_W, backgroundColor: "transparent", padding: S_PAD_OUT }}>
+        <View style={{ backgroundColor: L.scrimStrong, borderRadius: 26, padding: S_PAD_CARD, borderWidth: 1, borderColor: L.lineStrong }}>
           <StickerHeader />
 
           {/* ---------- SÉANCE ---------- */}
@@ -182,21 +184,21 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
               </Text>
 
               {/* Durée / volume / PR */}
-              <View style={{ flexDirection: "row", gap: 20, marginTop: 14 }}>
-                <View>
-                  <Text style={[mono, { color: C.ink0, fontSize: 20, fontWeight: "800" }]}>{formatDur(session.durationSec)}</Text>
-                  <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>durée</Text>
-                </View>
-                <View>
-                  <Text style={[mono, { color: C.ink0, fontSize: 20, fontWeight: "800" }]}>{formatNum(session.tonnage / 1000, 1)} t</Text>
-                  <Text style={{ color: C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>volume</Text>
-                </View>
-                <View>
-                  <Text style={[mono, { color: session.prCount ? C.gold : C.ink0, fontSize: 20, fontWeight: "800" }]}>{session.prCount}</Text>
-                  <Text style={{ color: session.prCount ? C.gold : C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
-                    PR{session.prCount > 1 ? "s" : ""}
-                  </Text>
-                </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 14, rowGap: 10 }}>
+                {[
+                  { v: formatDur(session.durationSec), l: "durée", gold: false },
+                  { v: `${formatNum(session.tonnage / 1000, 1)} t`, l: "volume", gold: false },
+                  { v: String(session.exoCount), l: "exos", gold: false },
+                  { v: String(session.setCount), l: "séries", gold: false },
+                  { v: String(session.prCount), l: session.prCount > 1 ? "PRs" : "PR", gold: session.prCount > 0 },
+                ].map((k, i) => (
+                  <View key={i} style={{ width: "33.3%" }}>
+                    <Text style={[mono, { color: k.gold ? C.gold : C.ink0, fontSize: 19, fontWeight: "800" }]}>{k.v}</Text>
+                    <Text style={{ color: k.gold ? C.gold : C.ink2, fontSize: 9.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                      {k.l}
+                    </Text>
+                  </View>
+                ))}
               </View>
 
               {/* PRs détaillés */}
@@ -212,7 +214,7 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
 
               {/* Détail par exo : nom / machine / séries / meilleure série */}
               <View style={{ marginTop: 14, gap: 7 }}>
-                {session.exos.slice(0, 6).map((e, i) => (
+                {session.exos.map((e, i) => (
                   <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text numberOfLines={1} style={{ color: C.ink0, fontSize: 12.5, fontWeight: "700" }}>
@@ -247,7 +249,7 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
           {/* ---------- LIFT ---------- */}
           {lift && (
             <>
-              <Text style={kickerStyle}>Nouveau record</Text>
+              <Text style={[kickerStyle, lift.isPR ? { color: C.gold } : null]}>{lift.isPR ? "Nouveau record" : "Performance"}</Text>
               <Text numberOfLines={2} style={{ color: C.ink0, fontSize: 24, fontWeight: "900", letterSpacing: -0.8, lineHeight: 27, marginTop: 4 }}>
                 {lift.exName}
               </Text>
@@ -266,7 +268,7 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
           {/* ---------- Repli (données riches absentes) ---------- */}
           {!session && !lift && (
             <>
-              <Text style={kickerStyle}>{draft.type === "lift" ? "Nouveau record" : "Séance terminée"}</Text>
+              <Text style={kickerStyle}>{draft.type === "lift" ? (draft.lift_ref?.prType ? "Nouveau record" : "Performance") : "Séance terminée"}</Text>
               <Text numberOfLines={2} style={{ color: C.ink0, fontSize: 22, fontWeight: "900", letterSpacing: -0.7, lineHeight: 26, marginTop: 4 }}>
                 {title}
               </Text>
@@ -407,6 +409,7 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
                       exName: c.exName,
                       exId: c.exId,
                       modelId: c.modelId,
+                      isPR: !!c.prType,
                       best: bestSetOf(c.ex) ?? { weight: c.weight, reps: c.reps, rir: null },
                       journalLogs,
                       exerciseLib,

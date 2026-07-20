@@ -14,8 +14,11 @@ export type SessionSticker = {
   durationSec: number;
   tonnage: number;
   prCount: number;
+  exoCount: number;
+  setCount: number;
   prList: Any[];
   exos: StickerExo[];
+  prevTonnage: number | null; // tonnage de la dernière fois (même séance)
   curve: CurvePoint[]; // tonnage des dernières fois que CETTE séance a été faite
   curveLabel: string;
 };
@@ -24,6 +27,7 @@ export type LiftSticker = {
   kind: "lift";
   exName: string;
   machineName: string | null;
+  isPR: boolean; // n'affiche « Nouveau record » que si c'en est un
   best: BestSet;
   curve: CurvePoint[]; // e1RM sur 30 jours
   curveLabel: string;
@@ -79,13 +83,18 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
   const last = withCurrent.slice(-6);
   const curve: CurvePoint[] = last.map((l: Any, i: number) => ({ x: i, y: tonnageOf(l) }));
 
+  // % de progression = tonnage total de CETTE séance vs le tonnage de la
+  // DERNIÈRE fois que la même séance (même sessionId) a été faite.
+  // Volontairement transparent : prevTonnage est exposé pour pouvoir
+  // afficher/vérifier la comparaison.
   let curveLabel = "";
+  let prevTonnage: number | null = null;
   if (curve.length >= 2) {
-    const prev = curve[curve.length - 2].y;
+    prevTonnage = curve[curve.length - 2].y;
     const now = curve[curve.length - 1].y;
-    if (prev > 0) {
-      const pct = Math.round(((now - prev) / prev) * 100);
-      curveLabel = `${pct >= 0 ? "+" : ""}${pct}% vs la dernière fois`;
+    if (prevTonnage > 0) {
+      const pct = Math.round(((now - prevTonnage) / prevTonnage) * 100);
+      curveLabel = `${pct >= 0 ? "+" : ""}${pct}% de volume vs la dernière fois`;
     }
   }
 
@@ -95,8 +104,11 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
     durationSec: log.durationSec || 0,
     tonnage: tonnageOf(log),
     prCount: (log.prs || []).length,
+    exoCount: exos.length,
+    setCount: exos.reduce((a, e) => a + e.sets, 0),
     prList: log.prs || [],
     exos,
+    prevTonnage,
     curve,
     curveLabel,
   };
@@ -108,10 +120,11 @@ export function buildLiftSticker(opts: {
   exId?: string | null;
   modelId?: string | null;
   best: BestSet;
+  isPR?: boolean;
   journalLogs: Any[];
   exerciseLib: Any[];
 }): LiftSticker {
-  const { exName, exId, modelId, best, journalLogs, exerciseLib } = opts;
+  const { exName, exId, modelId, best, isPR, journalLogs, exerciseLib } = opts;
   const lib = exId ? exerciseLib.find((l) => l.id === exId) : null;
   const machineName = modelId ? ((lib?.models || []).find((m: Any) => m.id === modelId)?.name ?? null) : null;
 
@@ -140,5 +153,5 @@ export function buildLiftSticker(opts: {
     }
   }
 
-  return { kind: "lift", exName, machineName, best, curve: pts, curveLabel };
+  return { kind: "lift", exName, machineName, isPR: !!isPR, best, curve: pts, curveLabel };
 }

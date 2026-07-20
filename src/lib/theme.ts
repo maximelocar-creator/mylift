@@ -32,6 +32,9 @@ export const L = {
   // Scrim du sticker story Instagram : voile sombre léger derrière le texte
   // pour rester lisible posé sur n'importe quelle photo (base bg0)
   scrim: "rgba(5,5,9,.55)",
+  // Sticker Instagram : voile plus dense — le texte blanc doit rester
+  // lisible même posé sur une photo claire
+  scrimStrong: "rgba(5,5,9,.82)",
 };
 
 // Motion — équivalents natifs des tokens --t-*/--ease-* de la v40.
