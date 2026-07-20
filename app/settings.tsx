@@ -12,11 +12,12 @@ import { useData } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { devResetIfTestAccount } from "@/lib/devReset";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
-import { Sheet, ConfirmSheet, Card, Chevron, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Card, Chevron, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH, BG_HOVER } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
 import { healthAvailable, healthDiagnostic, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
 import { getRestTarget, setRestTarget, formatRestTarget, REST_TARGET_MIN, REST_TARGET_MAX, REST_TARGET_STEP, REST_TARGET_DEFAULT } from "@/lib/restTarget";
+import { backfillMyPosts } from "@/lib/backfillPosts";
 
 // Couleurs de machine (mêmes clés que v40)
 const MODEL_COLOR_HEX: Record<string, string> = {
@@ -97,6 +98,22 @@ export default function Params() {
     setRestTargetState(next);
     setRestTarget(data.userId, next);
     haptic("light");
+  };
+
+  const [backfillMsg, setBackfillMsg] = useState<string | null>(null);
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  const runBackfill = async () => {
+    if (!data.userId || backfillBusy) return;
+    setBackfillBusy(true);
+    setBackfillMsg(null);
+    const r = await backfillMyPosts(data.userId, data.journalLogs, exerciseLib);
+    setBackfillBusy(false);
+    setBackfillMsg(
+      r.error
+        ? "Échec : " + r.error
+        : `${r.updated} post${r.updated > 1 ? "s" : ""} mis à jour${r.skipped ? ` · ${r.skipped} ignoré${r.skipped > 1 ? "s" : ""}` : ""}.`
+    );
+    haptic(r.error ? "error" : "success");
   };
 
   const [healthOn, setHealthOn] = useState(false);
@@ -446,6 +463,27 @@ export default function Params() {
 
       {/* Données */}
       <SectionLabel>Données</SectionLabel>
+      <Pressable
+        onPress={runBackfill}
+        disabled={backfillBusy}
+        style={({ pressed }) => ({
+          padding: 14,
+          backgroundColor: pressed ? BG_HOVER : C.bg2,
+          borderWidth: 1,
+          borderColor: LINE,
+          borderRadius: 16,
+          marginBottom: 10,
+          opacity: backfillBusy ? 0.6 : 1,
+        })}
+      >
+        <Text style={{ color: C.ink0, fontSize: 14, fontWeight: "700" }}>
+          {backfillBusy ? "Mise à jour…" : "Mettre mes anciens posts au nouveau format"}
+        </Text>
+        <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2, lineHeight: 16 }}>
+          Recalcule KPIs, détail par exo (avec machine) et % de force sur les posts déjà publiés.
+        </Text>
+        {!!backfillMsg && <Text style={{ color: C.accentHi, fontSize: 12, marginTop: 6, fontWeight: "600" }}>{backfillMsg}</Text>}
+      </Pressable>
       <Pressable onPress={() => router.push("/home")} style={{ padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 16, marginBottom: 10 }}>
         <Text style={{ color: C.ink0, fontSize: 14, fontWeight: "700" }}>Importer le backup v40</Text>
         <Text style={{ color: C.ink3, fontSize: 12, marginTop: 2 }}>Fichier JSON exporté depuis la PWA · relançable sans doublon</Text>

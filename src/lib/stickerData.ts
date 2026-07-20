@@ -60,6 +60,23 @@ export function bestSetOf(ex: Any): BestSet | null {
   return { weight: parseFloat(best.weight) || 0, reps: parseInt(best.reps) || 0, rir: num(best.rir) };
 }
 
+/** e1RM MOYEN sur TOUTES les séries valides d'un exo (pas seulement la
+ *  meilleure) — base du % de force : une séance où toutes les séries montent
+ *  compte davantage qu'une où seul le top set a progressé. */
+export function meanE1RMOf(ex: Any): number | null {
+  const sets = (ex.sets || []).filter(isValidSet);
+  if (!sets.length) return null;
+  const vals = sets
+    .map((s: Any) => {
+      const w = parseFloat(s.weight) || 0;
+      const r = parseInt(s.reps) || 0;
+      return w > 0 && r > 0 ? e1RM(w, r) : null;
+    })
+    .filter((v: number | null): v is number => v !== null);
+  if (!vals.length) return null;
+  return vals.reduce((a: number, v: number) => a + v, 0) / vals.length;
+}
+
 const tonnageOf = (log: Any) =>
   (log.exercises || []).reduce(
     (a: number, ex: Any) => a + (ex.sets || []).filter(isValidSet).reduce((b: number, s: Any) => b + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0),
@@ -89,26 +106,26 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
   // PROGRESSION = % de FORCE (décision Maxime), pas de volume : le volume
   // s'effondrait dès qu'une séance était écourtée (le fameux -68%).
   // Méthode : pour chaque exo PRÉSENT DANS LES DEUX séances, on compare
-  // l'e1RM (Epley) de la meilleure série ; on moyenne ces variations.
-  // Les exos faits une seule fois n'entrent pas dans le calcul → une séance
-  // plus courte ne pénalise plus le score.
+  // l'e1RM (Epley) MOYEN sur TOUTES ses séries valides, puis on moyenne ces
+  // variations. Toutes les séries comptent (pas seulement le top set), et les
+  // exos faits une seule fois sont exclus → une séance plus courte ne
+  // pénalise plus le score.
   const prevLog = withCurrent.length >= 2 ? withCurrent[withCurrent.length - 2] : null;
   let strengthPct: number | null = null;
   let strengthBasis = 0;
   if (prevLog) {
-    const prevBest: Record<string, number> = {};
+    const prevMean: Record<string, number> = {};
     (prevLog.exercises || []).forEach((ex: Any) => {
-      const b = bestSetOf(ex);
-      if (!b || b.weight <= 0) return;
-      prevBest[ex.exId || ex.exName] = e1RM(b.weight, b.reps);
+      const m = meanE1RMOf(ex);
+      if (m && m > 0) prevMean[ex.exId || ex.exName] = m;
     });
     const ratios: number[] = [];
     (log.exercises || []).forEach((ex: Any) => {
-      const b = bestSetOf(ex);
-      if (!b || b.weight <= 0) return;
-      const before = prevBest[ex.exId || ex.exName];
+      const now = meanE1RMOf(ex);
+      if (!now || now <= 0) return;
+      const before = prevMean[ex.exId || ex.exName];
       if (!before || before <= 0) return;
-      ratios.push(e1RM(b.weight, b.reps) / before - 1);
+      ratios.push(now / before - 1);
     });
     strengthBasis = ratios.length;
     if (ratios.length) strengthPct = Math.round((ratios.reduce((a, r) => a + r, 0) / ratios.length) * 100);
@@ -159,9 +176,9 @@ export function buildLiftSticker(opts: {
       (l.exercises || []).forEach((ex: Any) => {
         const sameExo = exId ? ex.exId === exId : ex.exName === exName;
         if (!sameExo) return;
-        const b = bestSetOf(ex);
-        if (!b || b.weight <= 0) return;
-        pts.push({ x: pts.length, y: Math.round(e1RM(b.weight, b.reps)) });
+        const m = meanE1RMOf(ex); // moyenne sur toutes les séries de l'exo
+        if (!m || m <= 0) return;
+        pts.push({ x: pts.length, y: Math.round(m) });
       });
     });
 
