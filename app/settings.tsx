@@ -6,13 +6,13 @@ import { View, Text, Pressable, ScrollView, TextInput, Switch } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, LinearTransition, Easing } from "react-native-reanimated";
 import { C, L, MOTION, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { devResetIfTestAccount } from "@/lib/devReset";
 import { MUSCLE_GROUPS_DEFAULT, programVolume, type Any } from "@/core/mylift";
-import { Sheet, ConfirmSheet, Card, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Card, Chevron, Chip, Label, SectionLabel, Btn, PickerSheet, SyncDot, afterSheetClose, LINE, ACCENT_WASH } from "@/ui/kit";
 import { haptic } from "@/lib/haptics";
 import MuscleGroupsSection from "@/screens/MuscleGroupsSection";
 import { healthAvailable, healthDiagnostic, initHealth, isHealthEnabled, setHealthEnabled } from "@/lib/health";
@@ -248,7 +248,7 @@ export default function Params() {
       </View>
 
       {/* Bibliothèque — en-tête repliable, recherche transverse, dépli animé */}
-      <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ marginTop: 18 }}>
+      <Animated.View layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={{ marginTop: 18 }}>
         <Pressable
           onPress={() => {
             setLibOpen(!libOpen);
@@ -266,15 +266,13 @@ export default function Params() {
             marginBottom: 10,
           })}
         >
-          <View style={{ backgroundColor: ACCENT_WASH, borderRadius: 8, padding: 6, borderWidth: 1, borderColor: "rgba(252,76,2,.35)" }}>
-            <Ionicons name={libOpen ? "chevron-up" : "chevron-down"} size={13} color={C.accentHi} />
-          </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>Bibliothèque d'exercices</Text>
             <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>
               {exerciseLib.length} exo{exerciseLib.length > 1 ? "s" : ""} · {groups.length} muscle{groups.length > 1 ? "s" : ""}
             </Text>
           </View>
+          <Chevron open={libOpen} />
         </Pressable>
 
         {libOpen && (
@@ -322,12 +320,12 @@ export default function Params() {
                 ))}
               </View>
             ) : (
-              <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ gap: 5 }}>
+              <Animated.View layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={{ gap: 5 }}>
                 {groups.map((g) => {
                   const exos = libByMuscle[g] || [];
                   const open = libMuscle === g;
                   return (
-                    <Animated.View key={g} layout={LinearTransition.springify().damping(26).stiffness(300)}>
+                    <Animated.View key={g} layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))}>
                       <Pressable
                         onPress={() => {
                           setLibMuscle(open ? null : g);
@@ -346,7 +344,7 @@ export default function Params() {
                           borderRadius: 12,
                         })}
                       >
-                        <Ionicons name={open ? "chevron-down" : "chevron-forward"} size={14} color={open ? C.accentHi : C.ink3} />
+                        <Chevron open={open} size={14} color={open ? C.accentHi : C.ink3} />
                         <Text style={{ flex: 1, fontSize: 13.5, fontWeight: "700", color: open ? C.accentHi : C.ink0 }}>{g}</Text>
                         <Text style={[mono, { fontSize: 11.5, fontWeight: "700", color: C.ink3 }]}>{exos.length}</Text>
                       </Pressable>

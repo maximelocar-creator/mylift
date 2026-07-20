@@ -7,11 +7,11 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition, Easing } from "react-native-reanimated";
 import { C, R, L, MOTION, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
-import { Sheet, ConfirmSheet, Btn, Label } from "../ui/kit";
+import { Sheet, ConfirmSheet, Btn, Chevron, Label } from "../ui/kit";
 
 const inputStyle = {
   backgroundColor: "rgba(255,255,255,.04)",
@@ -140,9 +140,6 @@ export default function MuscleGroupsSection() {
           marginBottom: sectionOpen ? 10 : 10,
         })}
       >
-        <View style={{ backgroundColor: L.accentWash, borderRadius: 8, padding: 6, borderWidth: 1, borderColor: "rgba(252,76,2,.35)" }}>
-          <Ionicons name={sectionOpen ? "chevron-up" : "chevron-down"} size={13} color={C.accentHi} />
-        </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>Groupes musculaires</Text>
           <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>
@@ -150,10 +147,11 @@ export default function MuscleGroupsSection() {
             {totalSubs ? ` · ${totalSubs} sous-groupe${totalSubs > 1 ? "s" : ""}` : ""}
           </Text>
         </View>
+        <Chevron open={sectionOpen} />
       </Pressable>
 
       {!sectionOpen ? null : (
-      <Animated.View entering={FadeInDown.duration(MOTION.local)} layout={LinearTransition.springify().damping(26).stiffness(300)}>
+      <Animated.View entering={FadeInDown.duration(MOTION.local)} layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))}>
       <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 10 }}>
         Tape une ligne pour voir et éditer les sous-groupes.
       </Text>
@@ -162,14 +160,12 @@ export default function MuscleGroupsSection() {
           const isExpanded = expanded === g;
           const subs = subsFor(g);
           return (
-            <Animated.View key={g} layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ borderBottomWidth: i === muscleGroups.length - 1 ? 0 : 1, borderBottomColor: L.line }}>
+            <Animated.View key={g} layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={{ borderBottomWidth: i === muscleGroups.length - 1 ? 0 : 1, borderBottomColor: L.line }}>
               <Pressable
                 onPress={() => setExpanded(isExpanded ? null : g)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 14, minHeight: 48 }}
               >
-                <View style={{ backgroundColor: L.accentWash, borderRadius: 6, padding: 4, borderWidth: 1, borderColor: "rgba(252,76,2,.35)" }}>
-                  <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color={C.accentHi} />
-                </View>
+                <Chevron open={isExpanded} size={14} color={isExpanded ? C.accentHi : C.ink3} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: 13, fontWeight: "700", color: C.ink0 }}>{g}</Text>
                   <Text style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>

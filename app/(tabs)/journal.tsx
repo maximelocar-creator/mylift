@@ -12,11 +12,11 @@ import { useActiveSession, buildLiveSession } from "@/lib/activeSession";
 import { recommendedSession, tonnageSession, type Any } from "@/core/mylift";
 import { ShareSessionSheet } from "@/screens/ComposePost";
 import { MONTHS_FR, DOW_FR, DOW_FR_S, formatRelative, formatNum, formatDur } from "@/lib/format";
-import { Sheet, ConfirmSheet, Btn, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH, SyncDot } from "@/ui/kit";
+import { Sheet, ConfirmSheet, Btn, Chevron, Chip, SectionLabel, afterSheetClose, LINE, ACCENT_WASH, SyncDot } from "@/ui/kit";
 import SessionLive from "@/screens/SessionLive";
 import SessionRecap from "@/screens/SessionRecap";
 import { haptic } from "@/lib/haptics";
-import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, LinearTransition, Easing } from "react-native-reanimated";
 import { ScreenSkeleton } from "@/ui/kit";
 
 const noteKey = (programId: string | null | undefined, sessionId: string) => (programId || "") + "::" + sessionId;
@@ -52,7 +52,7 @@ function SessionCard({
   const more = Math.max(0, exos.length - 3);
 
   return (
-    <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)}>
+    <Animated.View layout={LinearTransition.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))}>
     <Pressable
       onPress={() => setExpanded(!expanded)}
       style={{
@@ -109,7 +109,7 @@ function SessionCard({
             justifyContent: "center",
           }}
         >
-          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={15} color={C.accentHi} />
+          <Chevron open={expanded} size={15} color={C.accentHi} />
         </View>
       </View>
 

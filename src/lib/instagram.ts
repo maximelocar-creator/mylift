@@ -53,20 +53,25 @@ export async function canShareToInstagramStories(): Promise<boolean> {
 /** Pose le sticker transparent dans l'éditeur de story Instagram.
  *  Renvoie true si Instagram s'est ouvert, false → l'appelant fait le fallback
  *  share sheet iOS. Ne jette jamais. */
-export async function shareStickerToInstagramStories(stickerUri: string): Promise<boolean> {
+/** Ouvre l'éditeur de story Instagram.
+ *  @param backgroundUri fond PLEIN ÉCRAN (photo de l'utilisateur, ou carte
+ *         MyLift 9:16 s'il n'a pas mis de photo)
+ *  @param stickerUri overlay transparent optionnel (posé sur la photo)
+ *
+ *  L'API Instagram n'a que 3 modes de fond : image, vidéo ou dégradé — il
+ *  n'existe AUCUN moyen de lui dire « laisse l'utilisateur choisir sa photo ».
+ *  Un sticker seul ⇒ Instagram applique SON dégradé violet par défaut
+ *  (constaté). On fournit donc toujours le fond nous-mêmes. */
+export async function shareStickerToInstagramStories(backgroundUri: string, stickerUri?: string | null): Promise<boolean> {
   if (!(await canShareToInstagramStories())) return false;
   const share = loadRNShare();
   if (!share) return false;
   try {
-    // STICKER SEUL — surtout PAS de backgroundImage/backgroundTopColor :
-    // dès qu'on fournit un fond, Instagram le verrouille et l'utilisateur ne
-    // peut plus prendre de photo ni en importer une. Sans fond, Instagram
-    // ouvre son composeur de story normal (caméra + galerie) avec le sticker
-    // MyLift posé par-dessus, déplaçable/redimensionnable.
     await share.default.shareSingle({
       social: "instagramstories",
       appId: EFFECTIVE_APP_ID,
-      stickerImage: stickerUri,
+      backgroundImage: backgroundUri,
+      ...(stickerUri ? { stickerImage: stickerUri } : {}),
     });
     return true;
   } catch {

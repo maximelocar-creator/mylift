@@ -379,15 +379,21 @@ export function ComposePost({ open, onClose, draft, onPublished }: { open: boole
     // Laisse les vues off-screen se rendre avant capture
     await new Promise((r) => setTimeout(r, 80));
     try {
-      // 1. Tentative DIRECTE : sticker transparent posé dans l'éditeur de
-      // story Instagram (build EAS + Instagram installé). En Expo Go ou
-      // sans Instagram → false, on retombe sur le share sheet générique.
+      // Fond de la story :
+      //  - photo choisie dans MyLift → elle sert de fond, le sticker MyLift
+      //    transparent se pose dessus (rendu façon Strava) ;
+      //  - pas de photo → la carte MyLift 9:16 fait le fond (jamais le
+      //    dégradé violet par défaut d'Instagram).
+      const cardUri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: 1920 });
       const stickerUri = await captureRef(stickerRef, { format: "png", quality: 1, result: "tmpfile", width: 1080 });
-      if (await shareStickerToInstagramStories(stickerUri)) {
+      const ok = photo?.uri
+        ? await shareStickerToInstagramStories(photo.uri, stickerUri) // ta photo + sticker MyLift
+        : await shareStickerToInstagramStories(cardUri); // carte MyLift plein écran
+      if (ok) {
         haptic("success");
         return;
       }
-      const uri = await captureRef(shotRef, { format: "png", quality: 1, result: "tmpfile", width: 1080, height: 1920 });
+      const uri = cardUri;
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Partager en story Instagram" });
       }

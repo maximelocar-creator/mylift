@@ -14,6 +14,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { Ionicons } from "@expo/vector-icons";
 import { C, R, L, MOTION, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
@@ -70,6 +71,22 @@ export function SectionLabel({ children, right }: { children: ReactNode; right?:
       <Label>{children}</Label>
       {right != null && <Text style={{ marginLeft: "auto", fontSize: 11, fontWeight: "600", color: C.ink3 }}>{right}</Text>}
     </View>
+  );
+}
+
+/* Chevron de dépli — traitement iOS : fin, discret, qui PIVOTE en douceur
+   (0° fermé → 90° ouvert) au lieu de sauter d'une icône à l'autre.
+   Utilisé partout où une section s'ouvre, pour un langage cohérent. */
+export function Chevron({ open, size = 15, color }: { open: boolean; size?: number; color?: string }) {
+  const r = useSharedValue(open ? 1 : 0);
+  useEffect(() => {
+    r.value = withTiming(open ? 1 : 0, { duration: MOTION.local, easing: Easing.bezier(0.32, 0.72, 0, 1) });
+  }, [open]);
+  const a = useAnimatedStyle(() => ({ transform: [{ rotate: `${r.value * 90}deg` }] }));
+  return (
+    <Animated.View style={a}>
+      <Ionicons name="chevron-forward" size={size} color={color ?? C.ink3} />
+    </Animated.View>
   );
 }
 
