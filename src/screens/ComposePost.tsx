@@ -4,7 +4,10 @@
 // Photo : appareil OU galerie, pipeline image partagé (1080px JPEG, repli
 // data-URI). Après publication : export Instagram (story/post) — image générée
 // client à la DA MyLift (tokens theme.ts), partagée via le share sheet iOS.
-// CONFIDENTIALITÉ : les payloads ne contiennent JAMAIS de nom de machine.
+// MACHINES : décision Maxime (20/07/2026) — le nom de la machine est
+// désormais inclus dans les posts du feed (la TABLE exercise_models reste
+// privée en base ; c'est le nom, recopié dans un post publié volontairement,
+// qui devient visible par les amis).
 import { useRef, useState } from "react";
 import { View, Text, Pressable, TextInput, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,7 +22,7 @@ import { pickFromLibrary, takePhoto, uploadImage, type PickedImage } from "../li
 import { Sheet, Btn, Label, Chip, afterSheetClose } from "../ui/kit";
 import { formatDur, formatNum } from "../lib/format";
 import { Sparkline } from "../ui/Sparkline";
-import { buildSessionSticker, buildLiftSticker, bestSetOf, type SessionSticker, type LiftSticker, type CurvePoint } from "../lib/stickerData";
+import { buildSessionSticker, buildLiftSticker, bestSetOf, machineNameOf, type SessionSticker, type LiftSticker, type CurvePoint } from "../lib/stickerData";
 import { MASCOT_URI } from "../ui/mascot";
 import type { Any } from "../core/mylift";
 
@@ -296,7 +299,16 @@ export function sessionDraftOf(log: Any, journalLogs?: Any[], exerciseLib?: Any[
     defaultTitle: `Séance ${log.sessionName || ""}`.trim() + (prs.length ? ` · ${prs.length} PR${prs.length > 1 ? "s" : ""}` : ""),
     lift_ref: {
       stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
-      prList: prs.map((pr: Any) => ({ exName: pr.exName, weight: pr.weight, reps: pr.reps, type: pr.type })),
+      prList: prs.map((pr: Any) => ({
+        exName: pr.exName,
+        weight: pr.weight,
+        reps: pr.reps,
+        type: pr.type,
+        machineName: exerciseLib ? machineNameOf({ exId: pr.exId, modelId: pr.modelId }, exerciseLib) : null,
+      })),
+      // Détail par exo (nom, machine, séries, meilleure série) — même contenu
+      // que le sticker, désormais visible dans le feed
+      exos: journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib).exos : [],
     },
     sticker: journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib) : null,
   };
@@ -383,7 +395,14 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
                   pick({
                     type: "lift",
                     defaultTitle: `${c.exName} · ${c.weight} kg × ${c.reps}`,
-                    lift_ref: { exName: c.exName, weight: c.weight, reps: c.reps, ...(c.prType ? { prType: c.prType } : {}) },
+                    lift_ref: {
+                      exName: c.exName,
+                      weight: c.weight,
+                      reps: c.reps,
+                      machineName: machineNameOf(c.ex, exerciseLib),
+                      rir: bestSetOf(c.ex)?.rir ?? null,
+                      ...(c.prType ? { prType: c.prType } : {}),
+                    },
                     sticker: buildLiftSticker({
                       exName: c.exName,
                       exId: c.exId,

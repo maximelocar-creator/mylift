@@ -86,8 +86,14 @@ de comparer). Ne pas "améliorer" ces fonctions.
   au device, jamais synchronisées sur Supabase
 - Logs de séance immuables après validation (trigger SQL qui bloque tout
   UPDATE — le DELETE par l'owner reste permis)
-- `exercise_models` (machines) : jamais lisibles par un autre utilisateur, même
-  en RLS super permissive ailleurs — c'est la donnée la plus privée de l'app
+- `exercise_models` (machines) : la TABLE reste strictement privée en base
+  (RLS owner-only, jamais lisible par un autre compte — inchangé).
+  ⚠️ RÉVISION du 20/07/2026 (Maxime, explicite) : le NOM de la machine est
+  désormais AFFICHÉ dans les posts du feed et sur les stickers Instagram.
+  Nuance à garder en tête : personne ne peut interroger tes machines ; c'est
+  toi qui recopies le nom dans un post que tu publies volontairement
+  (lift_ref.machineName / lift_ref.exos[].machineName). Idem pour les exos
+  hors catalogue seed : leur nom circule normalement.
 
 ## Secrets / clés
 
@@ -411,9 +417,9 @@ JAMAIS de modelId/nom de machine (strippé à la composition).
   côté client max ~1080px JPEG avant upload (contrainte de coût), une seule
   image par post, affichée dans la carte du feed
 - Feed chronologique des comptes suivis acceptés + ses propres posts
-- Respect strict de la confidentialité des machines : un post peut montrer
-  un exo et une performance, jamais le nom de la machine personnelle
-  associée (exercise_models reste strictement privé même exposé via un post)
+- Machines dans les posts : RÉVISÉ le 20/07/2026 — le nom de la machine est
+  affiché (feed + stickers). La table exercise_models reste owner-only en
+  RLS ; seul le nom recopié dans un post publié devient visible.
 - Export Instagram (story + post), façon Strava : quand l'utilisateur partage un
   lift ou une séance, en plus de la publication dans le feed MyLift interne, un
   bouton propose d'exporter vers Instagram — en story ou en post. Une image est

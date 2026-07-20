@@ -316,7 +316,15 @@ export default function ExoDetail({ keyId, onBack }: { keyId: string; onBack: ()
                       setLiftDraft({
                         type: "lift",
                         defaultTitle: `${name} · ${pr.w} kg × ${pr.r}`,
-                        lift_ref: { exName: name, weight: pr.w, reps: pr.r },
+                        lift_ref: {
+                          exName: name,
+                          weight: pr.w,
+                          reps: pr.r,
+                          machineName:
+                            modelFilter && modelFilter !== "all"
+                              ? ((exerciseLib.find((l) => "lib:" + l.id === baseKey)?.models || []).find((m: Any) => m.id === modelFilter)?.name ?? null)
+                              : null,
+                        },
                         sticker: buildLiftSticker({
                           exName: name,
                           exId: baseKey.startsWith("lib:") ? baseKey.slice(4) : null,

@@ -2,8 +2,9 @@
 // (le sien et celui d'un ami) et le détail. Ordre décidé par Maxime : PHOTO
 // D'ABORD, chiffres dessous, puis titre/texte. Sans photo, les chiffres/PR
 // prennent la vedette (la carte ne doit pas paraître vide).
-// CONFIDENTIALITÉ : lift_ref ne contient jamais de nom de machine
-// (exercise_models) — seuls exName/weight/reps/prType sont rendus.
+// MACHINES : décision Maxime (20/07/2026) — le nom de la machine est
+// AFFICHÉ (la table exercise_models reste privée en base ; c'est le nom
+// recopié dans un post publié volontairement qui devient visible).
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Image, useWindowDimensions } from "react-native";
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay, interpolate, Easing } from "react-native-reanimated";
@@ -206,6 +207,8 @@ export function PostCard({
             </Text>
             <Text style={{ fontSize: 12, color: C.ink2, fontWeight: "600", flexShrink: 1 }} numberOfLines={1}>
               {lift.exName}
+              {lift.machineName ? ` · ${lift.machineName}` : ""}
+              {lift.rir !== null && lift.rir !== undefined ? ` · RIR ${lift.rir}` : ""}
             </Text>
             {!!lift.prType && (
               <Text style={{ fontSize: 10, fontWeight: "800", color: C.gold, textTransform: "uppercase", letterSpacing: 0.8 }}>
@@ -242,11 +245,46 @@ export function PostCard({
               <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
                 <Ionicons name="trophy" size={12} color={C.gold} />
                 <Text style={[mono, { fontSize: 12.5, fontWeight: "800", color: C.gold }]}>
-                  {pr.exName} · {pr.weight}×{pr.reps}
+                  {pr.exName}
+                  {pr.machineName ? ` · ${pr.machineName}` : ""} · {pr.weight}×{pr.reps}
                   {pr.type === "all-time" ? " · all-time" : pr.type === "rep" ? " · rep PR" : ""}
                 </Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Détail par exo (posts séance) : nom · machine · séries · meilleure série */}
+        {!isLift && (post.lift_ref?.exos?.length ?? 0) > 0 && (
+          <View style={{ marginBottom: 10, gap: 5 }}>
+            {post.lift_ref.exos.slice(0, detail ? 12 : 4).map((e: Any, i: number) => (
+              <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: "700", color: C.ink1 }}>
+                    {e.exName}
+                  </Text>
+                  {!!e.machineName && (
+                    <Text numberOfLines={1} style={{ fontSize: 10.5, color: C.ink3, marginTop: 1 }}>
+                      {e.machineName}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  {!!e.best && (
+                    <Text style={[mono, { fontSize: 12, fontWeight: "700", color: C.ink1 }]}>
+                      {e.best.reps} × {e.best.weight} kg
+                      {e.best.rir !== null && e.best.rir !== undefined ? ` · RIR ${e.best.rir}` : ""}
+                    </Text>
+                  )}
+                  <Text style={[mono, { fontSize: 10, color: C.ink3 }]}>
+                    {e.sets} série{e.sets > 1 ? "s" : ""}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            {!detail && post.lift_ref.exos.length > 4 && (
+              <Text style={[mono, { fontSize: 11, color: C.ink3 }]}>+ {post.lift_ref.exos.length - 4} autre{post.lift_ref.exos.length - 4 > 1 ? "s" : ""} exo{post.lift_ref.exos.length - 4 > 1 ? "s" : ""}</Text>
+            )}
           </View>
         )}
 
