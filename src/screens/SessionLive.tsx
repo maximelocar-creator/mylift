@@ -694,6 +694,18 @@ export default function SessionLive({
 
   const currentExo = liveExercises[session.currentExoIdx];
 
+  // Live Activity : pousse exo + machine + cible dès que l'exo courant, sa
+  // machine (activeModelId) ou sa cible changent — pas seulement à la
+  // validation d'une série. Ainsi l'écran verrouillé a toujours l'info à jour
+  // (fini le « rien » si on verrouille avant de valider). Neutre pendant un
+  // repos en cours (le décompte système a la priorité et porte déjà la machine).
+  useEffect(() => {
+    if (!currentExo || timerRunning) return;
+    const done = liveExercises.reduce((a: number, e: Any) => a + (e.sets || []).filter((x: Any) => x._confirmed && isValidSet(x)).length, 0);
+    const total = liveExercises.reduce((a: number, e: Any) => a + (e.sets || []).length, 0);
+    updateSessionProgress(currentExo.exName, done, total, currentExo.targetWeight ?? null, activeMachineName(currentExo));
+  }, [currentExo?.exName, currentExo?.activeModelId, currentExo?.targetWeight, timerRunning]);
+
   // "la dernière fois" — recalculée dynamiquement au changement de variante/modèle
   const liveLastPerformance = useMemo(() => {
     if (!currentExo) return null;

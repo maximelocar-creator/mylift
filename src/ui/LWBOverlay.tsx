@@ -71,24 +71,26 @@ function Reveal({ visible, delay = 0, style, children }: { visible: boolean; del
   return <Animated.View style={[style, a]}>{children}</Animated.View>;
 }
 
-/* Mascotte : entrée en pop spring immédiate + respiration douce (scale, jamais
-   de translation erratique) */
+/* Mascotte : VISIBLE dès le premier frame (opacité pleine, aucun fondu
+   retardé) — seul un léger pop de scale + respiration douce anime l'entrée.
+   Image parfaitement concentrique au halo (même boîte carrée centrée). */
+const MASCOT_BOX = 176;
 function Mascot({ glow }: { glow: string }) {
-  const intro = useSharedValue(0);
+  const pop = useSharedValue(0.82);
   const breathe = useSharedValue(0);
   useEffect(() => {
-    intro.value = withSpring(1, { damping: 11, stiffness: 150 });
-    breathe.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) }), -1, true);
+    pop.value = withSpring(1, { damping: 9, stiffness: 190 });
+    breathe.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, []);
   const a = useAnimatedStyle(() => ({
-    opacity: intro.value,
-    transform: [{ scale: interpolate(intro.value, [0, 1], [0.6, 1]) * (1 + breathe.value * 0.03) }],
+    transform: [{ scale: pop.value * (1 + breathe.value * 0.025) }],
   }));
   return (
-    <View style={{ width: 168, height: 168, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-      <View style={{ position: "absolute", width: 168, height: 168, borderRadius: 84, backgroundColor: glow, opacity: 0.32 }} />
-      <Animated.View style={a}>
-        <Image source={require("../../assets/mascot.png")} style={{ width: 140, height: 140 }} resizeMode="contain" fadeDuration={0} />
+    <View style={{ width: MASCOT_BOX, height: MASCOT_BOX, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+      {/* halo concentrique */}
+      <View style={{ position: "absolute", width: MASCOT_BOX, height: MASCOT_BOX, borderRadius: MASCOT_BOX / 2, backgroundColor: glow, opacity: 0.3 }} />
+      <Animated.View style={[{ width: MASCOT_BOX, height: MASCOT_BOX, alignItems: "center", justifyContent: "center" }, a]}>
+        <Image source={require("../../assets/mascot.png")} style={{ width: MASCOT_BOX, height: MASCOT_BOX }} resizeMode="contain" fadeDuration={0} />
       </Animated.View>
     </View>
   );
