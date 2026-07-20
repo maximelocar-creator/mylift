@@ -19,6 +19,8 @@ export type SessionSticker = {
   prList: Any[];
   exos: StickerExo[];
   prevTonnage: number | null; // tonnage de la dernière fois (même séance)
+  strengthPct: number | null; // % de FORCE vs la séance précédente (e1RM, exos communs)
+  strengthBasis: number; // nb d'exos comparés (transparence)
   curve: CurvePoint[]; // tonnage des dernières fois que CETTE séance a été faite
   curveLabel: string;
 };
@@ -31,6 +33,7 @@ export type LiftSticker = {
   best: BestSet;
   curve: CurvePoint[]; // e1RM sur 30 jours
   curveLabel: string;
+  progress30Pct: number | null; // % e1RM sur 30 jours
 };
 
 const num = (v: Any): number | null => (v === null || v === undefined || String(v) === "" ? null : Number(v));
@@ -83,20 +86,37 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
   const last = withCurrent.slice(-6);
   const curve: CurvePoint[] = last.map((l: Any, i: number) => ({ x: i, y: tonnageOf(l) }));
 
-  // % de progression = tonnage total de CETTE séance vs le tonnage de la
-  // DERNIÈRE fois que la même séance (même sessionId) a été faite.
-  // Volontairement transparent : prevTonnage est exposé pour pouvoir
-  // afficher/vérifier la comparaison.
-  let curveLabel = "";
-  let prevTonnage: number | null = null;
-  if (curve.length >= 2) {
-    prevTonnage = curve[curve.length - 2].y;
-    const now = curve[curve.length - 1].y;
-    if (prevTonnage > 0) {
-      const pct = Math.round(((now - prevTonnage) / prevTonnage) * 100);
-      curveLabel = `${pct >= 0 ? "+" : ""}${pct}% de volume vs la dernière fois`;
-    }
+  // PROGRESSION = % de FORCE (décision Maxime), pas de volume : le volume
+  // s'effondrait dès qu'une séance était écourtée (le fameux -68%).
+  // Méthode : pour chaque exo PRÉSENT DANS LES DEUX séances, on compare
+  // l'e1RM (Epley) de la meilleure série ; on moyenne ces variations.
+  // Les exos faits une seule fois n'entrent pas dans le calcul → une séance
+  // plus courte ne pénalise plus le score.
+  const prevLog = withCurrent.length >= 2 ? withCurrent[withCurrent.length - 2] : null;
+  let strengthPct: number | null = null;
+  let strengthBasis = 0;
+  if (prevLog) {
+    const prevBest: Record<string, number> = {};
+    (prevLog.exercises || []).forEach((ex: Any) => {
+      const b = bestSetOf(ex);
+      if (!b || b.weight <= 0) return;
+      prevBest[ex.exId || ex.exName] = e1RM(b.weight, b.reps);
+    });
+    const ratios: number[] = [];
+    (log.exercises || []).forEach((ex: Any) => {
+      const b = bestSetOf(ex);
+      if (!b || b.weight <= 0) return;
+      const before = prevBest[ex.exId || ex.exName];
+      if (!before || before <= 0) return;
+      ratios.push(e1RM(b.weight, b.reps) / before - 1);
+    });
+    strengthBasis = ratios.length;
+    if (ratios.length) strengthPct = Math.round((ratios.reduce((a, r) => a + r, 0) / ratios.length) * 100);
   }
+
+  const prevTonnage: number | null = curve.length >= 2 ? curve[curve.length - 2].y : null;
+  const curveLabel =
+    strengthPct !== null ? `${strengthPct >= 0 ? "+" : ""}${strengthPct}% de force vs la dernière fois` : "";
 
   return {
     kind: "session",
@@ -109,6 +129,8 @@ export function buildSessionSticker(log: Any, journalLogs: Any[], exerciseLib: A
     prList: log.prs || [],
     exos,
     prevTonnage,
+    strengthPct,
+    strengthBasis,
     curve,
     curveLabel,
   };
@@ -144,14 +166,15 @@ export function buildLiftSticker(opts: {
     });
 
   let curveLabel = "";
+  let progress30Pct: number | null = null;
   if (pts.length >= 2) {
     const first = pts[0].y;
     const now = pts[pts.length - 1].y;
     if (first > 0) {
-      const pct = Math.round(((now - first) / first) * 100);
-      curveLabel = `${pct >= 0 ? "+" : ""}${pct}% sur 30 jours`;
+      progress30Pct = Math.round(((now - first) / first) * 100);
+      curveLabel = `${progress30Pct >= 0 ? "+" : ""}${progress30Pct}% de force sur 30 jours`;
     }
   }
 
-  return { kind: "lift", exName, machineName, isPR: !!isPR, best, curve: pts, curveLabel };
+  return { kind: "lift", exName, machineName, isPR: !!isPR, best, curve: pts, curveLabel, progress30Pct };
 }

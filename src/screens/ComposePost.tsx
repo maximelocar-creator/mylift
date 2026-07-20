@@ -291,6 +291,7 @@ function StickerCard({ draft, title, note, shotRef }: { draft: PostDraft; title:
    sticker (machines, détail par exo, courbe) restent locales. */
 export function sessionDraftOf(log: Any, journalLogs?: Any[], exerciseLib?: Any[]): PostDraft {
   const prs: Any[] = log.prs || [];
+  const st = journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib) : null;
   const ton = (log.exercises || []).reduce(
     (a: number, ex: Any) => a + (ex.sets || []).reduce((b: number, s: Any) => b + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0),
     0
@@ -300,7 +301,14 @@ export function sessionDraftOf(log: Any, journalLogs?: Any[], exerciseLib?: Any[
     log_id: log.id,
     defaultTitle: `Séance ${log.sessionName || ""}`.trim() + (prs.length ? ` · ${prs.length} PR${prs.length > 1 ? "s" : ""}` : ""),
     lift_ref: {
-      stats: { durationSec: log.durationSec || 0, tonnage: ton, prs: prs.length },
+      stats: {
+        durationSec: log.durationSec || 0,
+        tonnage: ton,
+        prs: prs.length,
+        exos: st?.exoCount ?? 0,
+        sets: st?.setCount ?? 0,
+        strengthPct: st?.strengthPct ?? null,
+      },
       prList: prs.map((pr: Any) => ({
         exName: pr.exName,
         weight: pr.weight,
@@ -310,9 +318,9 @@ export function sessionDraftOf(log: Any, journalLogs?: Any[], exerciseLib?: Any[
       })),
       // Détail par exo (nom, machine, séries, meilleure série) — même contenu
       // que le sticker, désormais visible dans le feed
-      exos: journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib).exos : [],
+      exos: st?.exos ?? [],
     },
-    sticker: journalLogs && exerciseLib ? buildSessionSticker(log, journalLogs, exerciseLib) : null,
+    sticker: st,
   };
 }
 
@@ -393,7 +401,16 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
             {candidates.map((c: Any, i: number) => (
               <Pressable
                 key={i}
-                onPress={() =>
+                onPress={() => {
+                  const liftSt = buildLiftSticker({
+                    exName: c.exName,
+                    exId: c.exId,
+                    modelId: c.modelId,
+                    isPR: !!c.prType,
+                    best: bestSetOf(c.ex) ?? { weight: c.weight, reps: c.reps, rir: null },
+                    journalLogs,
+                    exerciseLib,
+                  });
                   pick({
                     type: "lift",
                     defaultTitle: `${c.exName} · ${c.weight} kg × ${c.reps}`,
@@ -403,19 +420,12 @@ export function ShareSessionSheet({ log, open, onClose }: { log: Any | null; ope
                       reps: c.reps,
                       machineName: machineNameOf(c.ex, exerciseLib),
                       rir: bestSetOf(c.ex)?.rir ?? null,
+                      progress30Pct: liftSt.progress30Pct,
                       ...(c.prType ? { prType: c.prType } : {}),
                     },
-                    sticker: buildLiftSticker({
-                      exName: c.exName,
-                      exId: c.exId,
-                      modelId: c.modelId,
-                      isPR: !!c.prType,
-                      best: bestSetOf(c.ex) ?? { weight: c.weight, reps: c.reps, rir: null },
-                      journalLogs,
-                      exerciseLib,
-                    }),
-                  })
-                }
+                    sticker: liftSt,
+                  });
+                }}
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",

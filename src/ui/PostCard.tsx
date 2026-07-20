@@ -217,26 +217,41 @@ export function PostCard({
             )}
           </View>
         )}
+        {isLift && lift?.progress30Pct !== null && lift?.progress30Pct !== undefined && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
+            <Ionicons name={lift.progress30Pct >= 0 ? "trending-up" : "trending-down"} size={13} color={lift.progress30Pct >= 0 ? C.accentHi : C.ink3} />
+            <Text style={[mono, { fontSize: 12, fontWeight: "800", color: lift.progress30Pct >= 0 ? C.accentHi : C.ink3 }]}>
+              {lift.progress30Pct >= 0 ? "+" : ""}
+              {lift.progress30Pct}% de force sur 30 jours
+            </Text>
+          </View>
+        )}
         {!isLift && !!stats && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 8, paddingVertical: post.image_url ? 0 : 6 }}>
-            {!!stats.durationSec && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="time-outline" size={13} color={C.ink2} />
-                <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>{formatDur(stats.durationSec)}</Text>
-              </View>
-            )}
-            {!!stats.tonnage && (
-              <Text style={[mono, { fontSize: 13, fontWeight: "700", color: C.ink1 }]}>{formatNum(stats.tonnage / 1000, 1)} t</Text>
-            )}
-            {!!stats.prs && stats.prs > 0 && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="trophy" size={13} color={C.gold} />
-                <Text style={[mono, { fontSize: 13, fontWeight: "800", color: C.gold }]}>
-                  {stats.prs} PR{stats.prs > 1 ? "s" : ""}
+          <>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 8, marginBottom: 8, paddingVertical: post.image_url ? 0 : 6 }}>
+              {[
+                { v: formatDur(stats.durationSec || 0), l: "durée", gold: false },
+                { v: `${formatNum((stats.tonnage || 0) / 1000, 1)} t`, l: "volume", gold: false },
+                ...(stats.exos ? [{ v: String(stats.exos), l: "exos", gold: false }] : []),
+                ...(stats.sets ? [{ v: String(stats.sets), l: "séries", gold: false }] : []),
+                { v: String(stats.prs || 0), l: (stats.prs || 0) > 1 ? "PRs" : "PR", gold: (stats.prs || 0) > 0 },
+              ].map((k, i) => (
+                <View key={i} style={{ width: "33.3%" }}>
+                  <Text style={[mono, { fontSize: 15, fontWeight: "800", color: k.gold ? C.gold : C.ink0 }]}>{k.v}</Text>
+                  <Text style={{ fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, color: k.gold ? C.gold : C.ink3 }}>{k.l}</Text>
+                </View>
+              ))}
+            </View>
+            {stats.strengthPct !== null && stats.strengthPct !== undefined && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
+                <Ionicons name={stats.strengthPct >= 0 ? "trending-up" : "trending-down"} size={13} color={stats.strengthPct >= 0 ? C.accentHi : C.ink3} />
+                <Text style={[mono, { fontSize: 12, fontWeight: "800", color: stats.strengthPct >= 0 ? C.accentHi : C.ink3 }]}>
+                  {stats.strengthPct >= 0 ? "+" : ""}
+                  {stats.strengthPct}% de force vs la dernière fois
                 </Text>
               </View>
             )}
-          </View>
+          </>
         )}
 
         {!isLift && (post.lift_ref?.prList?.length ?? 0) > 0 && (
