@@ -397,9 +397,11 @@ export default function SessionLive({
     timerStartRef.current = Date.now();
     setTimerRunning(true);
     persistTimer({ startedAt: timerStartRef.current, accum: timerAccumRef.current, target: timerTarget });
-    // Live Activity : décompte système jusqu'à la fin du repos restant
+    // Live Activity : timer qui MONTE (temps de repos pris) + barre vers la
+    // cible. startMs = maintenant − temps déjà écoulé (reprise après pause).
     const remaining = Math.max(0, timerTarget - timerAccumRef.current);
-    updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, activeMachineName(currentExo));
+    const startMs = Date.now() - timerAccumRef.current * 1000;
+    updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, startMs, activeMachineName(currentExo));
   };
   const stopTimer = () => {
     if (timerStartRef.current) {
@@ -426,11 +428,12 @@ export default function SessionLive({
     setTimerTarget((t: number) => {
       const next = t + 30;
       persistTimer({ target: next });
-      // Timer en cours : repousse la date de fin côté système (+30s)
+      // Timer en cours : +30s repousse la fin (barre), le temps pris continue
       if (timerRunning && timerStartRef.current) {
         const elapsed = timerAccumRef.current + Math.floor((Date.now() - timerStartRef.current) / 1000);
         const remaining = Math.max(0, next - elapsed);
-        updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, activeMachineName(currentExo));
+        const startMs = Date.now() - elapsed * 1000;
+        updateRestTimer(currentExo?.exName, currentExo?.targetWeight ?? null, Date.now() + remaining * 1000, startMs, activeMachineName(currentExo));
       }
       return next;
     });

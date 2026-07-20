@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
-index 1a00e92..3985299 100644
+index 1a00e92..aef66c0 100644
 --- a/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
 +++ b/node_modules/expo-live-activity/ios-files/LiveActivityView.swift
 @@ -1,246 +1,56 @@
@@ -254,7 +254,7 @@ index 1a00e92..3985299 100644
              }
            }
 +          Spacer()
-+          RestTimerText(endDate: contentState.timerEndDateInMilliseconds, size: 30)
++          RestTimerText(startDate: contentState.timerStartDateInMilliseconds, size: 30)
          }
  
 -        if !effectiveStretch {
@@ -283,7 +283,7 @@ index 1a00e92..3985299 100644
    }
  
 diff --git a/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift b/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
-index 24cd8c5..ec2af87 100644
+index 24cd8c5..7e46ebd 100644
 --- a/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
 +++ b/node_modules/expo-live-activity/ios-files/LiveActivityWidget.swift
 @@ -1,3 +1,12 @@
@@ -299,7 +299,15 @@ index 24cd8c5..ec2af87 100644
  import ActivityKit
  import SwiftUI
  import WidgetKit
-@@ -45,125 +54,178 @@ struct LiveActivityAttributes: ActivityAttributes {
+@@ -7,6 +16,7 @@ struct LiveActivityAttributes: ActivityAttributes {
+     var title: String
+     var subtitle: String?
+     var timerEndDateInMilliseconds: Double?
++    var timerStartDateInMilliseconds: Double?
+     var progress: Double?
+     var imageName: String?
+     var dynamicIslandImageName: String?
+@@ -45,125 +55,182 @@ struct LiveActivityAttributes: ActivityAttributes {
    }
  }
  
@@ -332,15 +340,19 @@ index 24cd8c5..ec2af87 100644
 +  }
 +}
 +
-+// Timer : valeur réelle si repos en cours, sinon 0:00 fixe
++// Timer : temps de repos PRIS (compte vers le haut depuis le début du repos),
++// non borné. 0:00 fixe hors repos.
 +struct RestTimerText: View {
-+  let endDate: Double?
++  let startDate: Double?
 +  var size: CGFloat = 15
 +  var body: some View {
 +    Group {
-+      if let endDate {
-+        Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
-+          .multilineTextAlignment(.trailing)
++      if let startDate {
++        Text(
++          timerInterval: Date(timeIntervalSince1970: startDate / 1000) ... Date.distantFuture,
++          countsDown: false
++        )
++        .multilineTextAlignment(.trailing)
 +      } else {
 +        Text("0:00")
 +      }
@@ -446,7 +458,7 @@ index 24cd8c5..ec2af87 100644
 -              .padding(.trailing, 5)
 -              .applyWidgetURL(from: context.attributes.deepLinkUrl)
 +          VStack(alignment: .trailing, spacing: 2) {
-+            RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 24)
++            RestTimerText(startDate: context.state.timerStartDateInMilliseconds, size: 24)
 +            Text("repos")
 +              .font(.system(size: 10, weight: .semibold))
 +              .foregroundColor(.white.opacity(0.55))
@@ -494,7 +506,7 @@ index 24cd8c5..ec2af87 100644
 -            progressViewTint: context.attributes.progressViewTint
 -          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
 +        HStack(spacing: 5) {
-+          RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 14)
++          RestTimerText(startDate: context.state.timerStartDateInMilliseconds, size: 14)
 +            .frame(maxWidth: 48)
 +          RestRing(endDate: context.state.timerEndDateInMilliseconds)
          }
@@ -507,9 +519,11 @@ index 24cd8c5..ec2af87 100644
 -            progressViewTint: context.attributes.progressViewTint
 -          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
 -        }
--      }
--    }
--  }
++        RestRing(endDate: context.state.timerEndDateInMilliseconds)
++          .applyWidgetURL(from: context.attributes.deepLinkUrl)
+       }
+     }
+   }
 -
 -  @ViewBuilder
 -  private func compactTimer(
@@ -542,9 +556,7 @@ index 24cd8c5..ec2af87 100644
 -          .font(.title3)
 -          .minimumScaleFactor(0.8)
 -          .foregroundStyle(.white.opacity(0.75))
-+        RestRing(endDate: context.state.timerEndDateInMilliseconds)
-+          .applyWidgetURL(from: context.attributes.deepLinkUrl)
-       }
+-      }
 -      Spacer()
 -    }
 -  }
@@ -554,8 +566,8 @@ index 24cd8c5..ec2af87 100644
 -      Spacer()
 -      resizableImage(imageName: imageName)
 -      Spacer()
-     }
-   }
+-    }
+-  }
 -
 -  private func dynamicIslandExpandedBottom(endDate: Double, progressViewTint: String?) -> some View {
 -    ProgressView(timerInterval: Date.toTimerInterval(miliseconds: endDate))
@@ -576,3 +588,55 @@ index 24cd8c5..ec2af87 100644
 -    .progressViewStyle(.circular)
 -  }
  }
+diff --git a/node_modules/expo-live-activity/ios/ExpoLiveActivityModule.swift b/node_modules/expo-live-activity/ios/ExpoLiveActivityModule.swift
+index 6fdf9f5..cdf85a1 100644
+--- a/node_modules/expo-live-activity/ios/ExpoLiveActivityModule.swift
++++ b/node_modules/expo-live-activity/ios/ExpoLiveActivityModule.swift
+@@ -18,6 +18,11 @@ public class ExpoLiveActivityModule: Module {
+ 
+       @Field
+       var progress: Double?
++
++      // MyLift : date de DÉBUT du repos → timer qui compte vers le haut
++      // (temps de repos pris), pendant que `date` (fin) alimente la barre.
++      @Field
++      var startDate: Double?
+     }
+ 
+     @Field
+@@ -249,6 +254,7 @@ public class ExpoLiveActivityModule: Module {
+           title: state.title,
+           subtitle: state.subtitle,
+           timerEndDateInMilliseconds: state.progressBar?.date,
++          timerStartDateInMilliseconds: state.progressBar?.startDate,
+           progress: state.progressBar?.progress
+         )
+ 
+@@ -285,6 +291,7 @@ public class ExpoLiveActivityModule: Module {
+           title: state.title,
+           subtitle: state.subtitle,
+           timerEndDateInMilliseconds: state.progressBar?.date,
++          timerStartDateInMilliseconds: state.progressBar?.startDate,
+           progress: state.progressBar?.progress
+         )
+         try await updateImages(state: state, newState: &newState)
+@@ -312,6 +319,7 @@ public class ExpoLiveActivityModule: Module {
+           title: state.title,
+           subtitle: state.subtitle,
+           timerEndDateInMilliseconds: state.progressBar?.date,
++          timerStartDateInMilliseconds: state.progressBar?.startDate,
+           progress: state.progressBar?.progress
+         )
+         try await updateImages(state: state, newState: &newState)
+diff --git a/node_modules/expo-live-activity/ios/LiveActivityAttributes.swift b/node_modules/expo-live-activity/ios/LiveActivityAttributes.swift
+index f71c857..514f190 100644
+--- a/node_modules/expo-live-activity/ios/LiveActivityAttributes.swift
++++ b/node_modules/expo-live-activity/ios/LiveActivityAttributes.swift
+@@ -6,6 +6,7 @@ struct LiveActivityAttributes: ActivityAttributes {
+     var title: String
+     var subtitle: String?
+     var timerEndDateInMilliseconds: Double?
++    var timerStartDateInMilliseconds: Double?
+     var progress: Double?
+     var imageName: String?
+     var dynamicIslandImageName: String?

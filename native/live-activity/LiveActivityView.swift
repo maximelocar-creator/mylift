@@ -37,7 +37,7 @@ import WidgetKit
             }
           }
           Spacer()
-          RestTimerText(endDate: contentState.timerEndDateInMilliseconds, size: 30)
+          RestTimerText(startDate: contentState.timerStartDateInMilliseconds, size: 30)
         }
 
         if let date = contentState.timerEndDateInMilliseconds {

@@ -16,6 +16,7 @@ struct LiveActivityAttributes: ActivityAttributes {
     var title: String
     var subtitle: String?
     var timerEndDateInMilliseconds: Double?
+    var timerStartDateInMilliseconds: Double?
     var progress: Double?
     var imageName: String?
     var dynamicIslandImageName: String?
@@ -83,15 +84,19 @@ struct MyLiftMark: View {
   }
 }
 
-// Timer : valeur réelle si repos en cours, sinon 0:00 fixe
+// Timer : temps de repos PRIS (compte vers le haut depuis le début du repos),
+// non borné. 0:00 fixe hors repos.
 struct RestTimerText: View {
-  let endDate: Double?
+  let startDate: Double?
   var size: CGFloat = 15
   var body: some View {
     Group {
-      if let endDate {
-        Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
-          .multilineTextAlignment(.trailing)
+      if let startDate {
+        Text(
+          timerInterval: Date(timeIntervalSince1970: startDate / 1000) ... Date.distantFuture,
+          countsDown: false
+        )
+        .multilineTextAlignment(.trailing)
       } else {
         Text("0:00")
       }
@@ -186,7 +191,7 @@ struct LiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.trailing) {
           VStack(alignment: .trailing, spacing: 2) {
-            RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 24)
+            RestTimerText(startDate: context.state.timerStartDateInMilliseconds, size: 24)
             Text("repos")
               .font(.system(size: 10, weight: .semibold))
               .foregroundColor(.white.opacity(0.55))
@@ -217,7 +222,7 @@ struct LiveActivityWidget: Widget {
           .applyWidgetURL(from: context.attributes.deepLinkUrl)
       } compactTrailing: {
         HStack(spacing: 5) {
-          RestTimerText(endDate: context.state.timerEndDateInMilliseconds, size: 14)
+          RestTimerText(startDate: context.state.timerStartDateInMilliseconds, size: 14)
             .frame(maxWidth: 48)
           RestRing(endDate: context.state.timerEndDateInMilliseconds)
         }

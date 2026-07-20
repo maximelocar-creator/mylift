@@ -127,6 +127,7 @@ export function updateRestTimer(
   exName: string,
   targetWeight: number | string | null,
   endMs: number,
+  startMs: number,
   machineName?: string | null
 ): void {
   if (!LA || !activityId) return;
@@ -135,7 +136,9 @@ export function updateRestTimer(
     LA.updateActivity(activityId, {
       title: exName || baseTitle,
       subtitle: withMachine(w ?? "Repos", machineName),
-      progressBar: { date: endMs },
+      // date = fin (barre/anneau vers la cible) · startDate = début du repos
+      // (timer qui compte VERS LE HAUT = temps de repos pris)
+      progressBar: { date: endMs, startDate: startMs } as any,
     });
   } catch {}
 }
