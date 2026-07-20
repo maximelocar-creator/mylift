@@ -22,6 +22,7 @@ import { pickFromLibrary, takePhoto, uploadImage, type PickedImage } from "../li
 import { Sheet, Btn, Label, Chip, afterSheetClose } from "../ui/kit";
 import { formatDur, formatNum } from "../lib/format";
 import { Sparkline } from "../ui/Sparkline";
+import { LOGO_GLYPH_URI } from "../ui/logoGlyph";
 import { buildSessionSticker, buildLiftSticker, bestSetOf, machineNameOf, type SessionSticker, type LiftSticker, type CurvePoint } from "../lib/stickerData";
 import type { Any } from "../core/mylift";
 
@@ -128,7 +129,7 @@ function StickerHeader() {
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Ionicons name="barbell" size={22} color={C.accent} />
+        <Image source={{ uri: LOGO_GLYPH_URI }} style={{ width: 26, height: 26 }} resizeMode="contain" fadeDuration={0} />
         <Text style={{ color: C.ink0, fontSize: 19, fontWeight: "900", letterSpacing: -0.7 }}>
           My<Text style={{ color: C.accent }}>Lift</Text>
         </Text>
