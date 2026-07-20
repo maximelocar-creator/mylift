@@ -6,7 +6,8 @@ import { View, Text, Pressable, ScrollView, TextInput, Switch } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { C, mono } from "@/lib/theme";
+import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-reanimated";
+import { C, L, MOTION, mono } from "@/lib/theme";
 import { useData } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { devResetIfTestAccount } from "@/lib/devReset";
@@ -23,6 +24,47 @@ const MODEL_COLOR_HEX: Record<string, string> = {
   amber: "#EF9F27", pink: "#D4537E", teal: "#1D9E75",
 };
 
+/* Ligne d'exercice de la bibliothèque — lisible, cible tactile ≥48px,
+   compte de machines visible, tap → gestion des machines. */
+function ExoRow({ exo, showGroup, onPress }: { exo: Any; showGroup?: boolean; onPress: () => void }) {
+  const nModels = exo.models?.length || 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        minHeight: 48,
+        backgroundColor: pressed ? L.bgHover : C.bg3,
+        borderWidth: 1,
+        borderColor: LINE,
+        borderRadius: 10,
+      })}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: C.ink0 }}>
+          {exo.name}
+        </Text>
+        <Text numberOfLines={1} style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>
+          {showGroup && exo.muscleGroup ? exo.muscleGroup + " · " : ""}
+          {exo.subGroup ? exo.subGroup + " · " : ""}
+          {exo.compound ? "poly" : "iso"}
+        </Text>
+      </View>
+      {nModels > 0 && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,.06)" }}>
+          <Ionicons name="hardware-chip-outline" size={11} color={C.ink2} />
+          <Text style={[mono, { fontSize: 11, fontWeight: "700", color: C.ink2 }]}>{nModels}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={14} color={C.ink3} />
+    </Pressable>
+  );
+}
+
 export default function Params() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -35,6 +77,7 @@ export default function Params() {
   const [newProgName, setNewProgName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [libMuscle, setLibMuscle] = useState<string | null>(null);
+  const [libSearch, setLibSearch] = useState("");
   const [addExoOpen, setAddExoOpen] = useState(false);
   const [newExoName, setNewExoName] = useState("");
   const [newExoSub, setNewExoSub] = useState<string | null>(null);
@@ -107,6 +150,16 @@ export default function Params() {
     });
     return out;
   }, [exerciseLib]);
+
+  // Recherche transverse dans toute la bibliothèque (≥2 caractères)
+  const libResults = useMemo(() => {
+    const q = libSearch.trim().toLowerCase();
+    if (q.length < 2) return null;
+    return exerciseLib
+      .filter((e) => (e.name || "").toLowerCase().includes(q))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+      .slice(0, 40);
+  }, [libSearch, exerciseLib]);
 
   const addExo = async () => {
     if (!libMuscle || newExoName.trim().length < 2) return;
@@ -194,67 +247,133 @@ export default function Params() {
         </Btn>
       </View>
 
-      {/* Bibliothèque */}
-      <SectionLabel right={`${exerciseLib.length} exos`}>Bibliothèque</SectionLabel>
-      <Pressable
-        onPress={() => setLibOpen(!libOpen)}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: LINE, borderRadius: 16, marginBottom: 6 }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>Parcourir par muscle</Text>
-        <Ionicons name={libOpen ? "chevron-up" : "chevron-down"} size={16} color={C.ink3} />
-      </Pressable>
-      {libOpen && (
-        <View style={{ gap: 4, marginBottom: 6 }}>
-          {groups.map((g) => {
-            const exos = libByMuscle[g] || [];
-            const open = libMuscle === g;
-            return (
-              <View key={g}>
-                <Pressable
-                  onPress={() => setLibMuscle(open ? null : g)}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 10,
-                    paddingHorizontal: 14,
-                    backgroundColor: C.bg2,
-                    borderWidth: 1,
-                    borderColor: open ? "rgba(252,76,2,.3)" : LINE,
-                    borderRadius: 10,
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: open ? C.accentHi : C.ink0 }}>{g}</Text>
-                  <Text style={[mono, { fontSize: 11, color: C.ink3 }]}>{exos.length}</Text>
-                </Pressable>
-                {open && (
-                  <View style={{ paddingVertical: 6, paddingLeft: 8, gap: 4 }}>
-                    {exos.map((e) => (
-                      <View key={e.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: C.bg1, borderRadius: 8 }}>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "600", color: C.ink1 }}>
-                            {e.name}
-                          </Text>
-                          <Text style={{ fontSize: 10, color: C.ink3, marginTop: 1 }}>
-                            {(e.subGroup ? e.subGroup + " · " : "") + (e.compound ? "poly" : "iso")}
-                            {e.models?.length ? " · " + e.models.map((m: Any) => m.name).join(", ") : ""}
-                          </Text>
-                        </View>
-                        <Pressable onPress={() => setModelExo(e)} hitSlop={6} style={{ padding: 6 }}>
-                          <Ionicons name="hardware-chip-outline" size={14} color={C.ink3} />
-                        </Pressable>
-                      </View>
-                    ))}
-                    <Btn kind="ghost" sm onPress={() => setAddExoOpen(true)}>
-                      ＋ Exo custom · {g}
-                    </Btn>
-                  </View>
-                )}
-              </View>
-            );
+      {/* Bibliothèque — en-tête repliable, recherche transverse, dépli animé */}
+      <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ marginTop: 18 }}>
+        <Pressable
+          onPress={() => {
+            setLibOpen(!libOpen);
+            haptic("light");
+          }}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            padding: 14,
+            backgroundColor: pressed ? L.bgHover : C.bg2,
+            borderWidth: 1,
+            borderColor: LINE,
+            borderRadius: 16,
+            marginBottom: 10,
           })}
-        </View>
-      )}
+        >
+          <View style={{ backgroundColor: ACCENT_WASH, borderRadius: 8, padding: 6, borderWidth: 1, borderColor: "rgba(252,76,2,.35)" }}>
+            <Ionicons name={libOpen ? "chevron-up" : "chevron-down"} size={13} color={C.accentHi} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink0 }}>Bibliothèque d'exercices</Text>
+            <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>
+              {exerciseLib.length} exo{exerciseLib.length > 1 ? "s" : ""} · {groups.length} muscle{groups.length > 1 ? "s" : ""}
+            </Text>
+          </View>
+        </Pressable>
+
+        {libOpen && (
+          <Animated.View entering={FadeInDown.duration(MOTION.local)} style={{ marginBottom: 6 }}>
+            {/* Recherche transverse */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "rgba(255,255,255,.04)",
+                borderWidth: 1,
+                borderColor: LINE,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                marginBottom: 10,
+              }}
+            >
+              <Ionicons name="search" size={15} color={C.ink3} />
+              <TextInput
+                value={libSearch}
+                onChangeText={setLibSearch}
+                placeholder="Rechercher un exercice…"
+                placeholderTextColor={C.ink3}
+                autoCapitalize="none"
+                style={{ flex: 1, color: C.ink0, paddingVertical: 10, fontSize: 14 }}
+              />
+              {libSearch.length > 0 && (
+                <Pressable onPress={() => setLibSearch("")} hitSlop={8} style={{ padding: 4 }}>
+                  <Ionicons name="close-circle" size={16} color={C.ink3} />
+                </Pressable>
+              )}
+            </View>
+
+            {/* Résultats de recherche (toutes catégories confondues) */}
+            {libResults !== null ? (
+              <View style={{ gap: 5 }}>
+                {libResults.length === 0 && (
+                  <Text style={{ fontSize: 13, color: C.ink3, textAlign: "center", paddingVertical: 18 }}>Aucun exercice pour « {libSearch.trim()} »</Text>
+                )}
+                {libResults.map((e, i) => (
+                  <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(i * 18, 180)).duration(MOTION.local)}>
+                    <ExoRow exo={e} showGroup onPress={() => setModelExo(e)} />
+                  </Animated.View>
+                ))}
+              </View>
+            ) : (
+              <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ gap: 5 }}>
+                {groups.map((g) => {
+                  const exos = libByMuscle[g] || [];
+                  const open = libMuscle === g;
+                  return (
+                    <Animated.View key={g} layout={LinearTransition.springify().damping(26).stiffness(300)}>
+                      <Pressable
+                        onPress={() => {
+                          setLibMuscle(open ? null : g);
+                          haptic("light");
+                        }}
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          paddingVertical: 12,
+                          paddingHorizontal: 14,
+                          minHeight: 48,
+                          backgroundColor: open ? ACCENT_WASH : pressed ? L.bgHover : C.bg2,
+                          borderWidth: 1,
+                          borderColor: open ? "rgba(252,76,2,.35)" : LINE,
+                          borderRadius: 12,
+                        })}
+                      >
+                        <Ionicons name={open ? "chevron-down" : "chevron-forward"} size={14} color={open ? C.accentHi : C.ink3} />
+                        <Text style={{ flex: 1, fontSize: 13.5, fontWeight: "700", color: open ? C.accentHi : C.ink0 }}>{g}</Text>
+                        <Text style={[mono, { fontSize: 11.5, fontWeight: "700", color: C.ink3 }]}>{exos.length}</Text>
+                      </Pressable>
+
+                      {open && (
+                        <Animated.View entering={FadeInDown.duration(MOTION.local)} style={{ paddingTop: 6, paddingLeft: 10, gap: 5 }}>
+                          {exos.length === 0 && (
+                            <Text style={{ fontSize: 12.5, color: C.ink3, paddingVertical: 8 }}>Aucun exercice dans ce muscle.</Text>
+                          )}
+                          {exos.map((e, i) => (
+                            <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(i * 16, 160)).duration(MOTION.local)}>
+                              <ExoRow exo={e} onPress={() => setModelExo(e)} />
+                            </Animated.View>
+                          ))}
+                          <Btn kind="ghost" sm full onPress={() => setAddExoOpen(true)} style={{ marginTop: 2, marginBottom: 4 }}>
+                            ＋ Exercice dans {g}
+                          </Btn>
+                        </Animated.View>
+                      )}
+                    </Animated.View>
+                  );
+                })}
+              </Animated.View>
+            )}
+          </Animated.View>
+        )}
+      </Animated.View>
 
       {/* Groupes musculaires — la section porte son propre en-tête repliable */}
       <View style={{ marginTop: 18 }}>

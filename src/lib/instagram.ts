@@ -13,7 +13,6 @@
 //    pour attribuer la source. À créer et renseigner avant le build EAS.
 import { Platform, Linking } from "react-native";
 import Constants from "expo-constants";
-import { C } from "./theme";
 
 // App ID Meta de l'app « mylift » (developers.facebook.com). Identifiant
 // PUBLIC (il voyage dans le client) — pas un secret.
@@ -59,14 +58,15 @@ export async function shareStickerToInstagramStories(stickerUri: string): Promis
   const share = loadRNShare();
   if (!share) return false;
   try {
+    // STICKER SEUL — surtout PAS de backgroundImage/backgroundTopColor :
+    // dès qu'on fournit un fond, Instagram le verrouille et l'utilisateur ne
+    // peut plus prendre de photo ni en importer une. Sans fond, Instagram
+    // ouvre son composeur de story normal (caméra + galerie) avec le sticker
+    // MyLift posé par-dessus, déplaçable/redimensionnable.
     await share.default.shareSingle({
       social: "instagramstories",
       appId: EFFECTIVE_APP_ID,
       stickerImage: stickerUri,
-      // Fond dégradé DA par défaut derrière le sticker — l'utilisateur peut le
-      // remplacer par sa propre photo dans l'éditeur Instagram.
-      backgroundTopColor: C.bg1,
-      backgroundBottomColor: C.bg0,
     });
     return true;
   } catch {

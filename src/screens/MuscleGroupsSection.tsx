@@ -7,7 +7,8 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, R, L, mono } from "../lib/theme";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import { C, R, L, MOTION, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
 import { useData } from "../lib/store";
 import { Sheet, ConfirmSheet, Btn, Label } from "../ui/kit";
@@ -152,7 +153,7 @@ export default function MuscleGroupsSection() {
       </Pressable>
 
       {!sectionOpen ? null : (
-      <View>
+      <Animated.View entering={FadeInDown.duration(MOTION.local)} layout={LinearTransition.springify().damping(26).stiffness(300)}>
       <Text style={{ fontSize: 13, color: C.ink2, marginBottom: 10 }}>
         Tape une ligne pour voir et éditer les sous-groupes.
       </Text>
@@ -161,7 +162,7 @@ export default function MuscleGroupsSection() {
           const isExpanded = expanded === g;
           const subs = subsFor(g);
           return (
-            <View key={g} style={{ borderBottomWidth: i === muscleGroups.length - 1 ? 0 : 1, borderBottomColor: L.line }}>
+            <Animated.View key={g} layout={LinearTransition.springify().damping(26).stiffness(300)} style={{ borderBottomWidth: i === muscleGroups.length - 1 ? 0 : 1, borderBottomColor: L.line }}>
               <Pressable
                 onPress={() => setExpanded(isExpanded ? null : g)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 14, minHeight: 48 }}
@@ -200,7 +201,7 @@ export default function MuscleGroupsSection() {
               </Pressable>
 
               {isExpanded && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12, backgroundColor: C.bg3, borderTopWidth: 1, borderTopColor: L.line }}>
+                <Animated.View entering={FadeInDown.duration(MOTION.local)} style={{ paddingHorizontal: 14, paddingBottom: 12, backgroundColor: C.bg3, borderTopWidth: 1, borderTopColor: L.line }}>
                   <Label style={{ paddingTop: 10, paddingBottom: 6 }}>Sous-groupes</Label>
                   {subs.length === 0 && (
                     <Text style={{ fontSize: 11, color: C.ink3, fontStyle: "italic", paddingVertical: 4 }}>Aucun sous-groupe pour ce muscle.</Text>
@@ -255,16 +256,16 @@ export default function MuscleGroupsSection() {
                   >
                     ＋ Ajouter un sous-groupe
                   </Btn>
-                </View>
+                </Animated.View>
               )}
-            </View>
+            </Animated.View>
           );
         })}
       </View>
       <Btn full onPress={() => setAddOpen(true)}>
         ＋ Nouveau groupe
       </Btn>
-      </View>
+      </Animated.View>
       )}
 
       {/* Nouveau groupe */}
