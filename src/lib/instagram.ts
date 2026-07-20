@@ -15,7 +15,9 @@ import { Platform, Linking } from "react-native";
 import Constants from "expo-constants";
 import { C } from "./theme";
 
-export const META_APP_ID = ""; // App ID Meta officiel (developers.facebook.com) — recommandé pour la prod
+// App ID Meta de l'app « mylift » (developers.facebook.com). Identifiant
+// PUBLIC (il voyage dans le client) — pas un secret.
+export const META_APP_ID = "28068119842784335";
 // Sans App ID Meta, Instagram accepte en pratique le partage de sticker via le
 // pasteboard (l'ID sert surtout à l'attribution). On tente donc TOUJOURS le
 // chemin direct avec un identifiant de repli ; en cas de refus, le catch
