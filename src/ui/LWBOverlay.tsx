@@ -19,6 +19,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import { C, mono } from "../lib/theme";
 import { haptic } from "../lib/haptics";
+import { MASCOT_URI } from "./mascot";
 import type { Any } from "../core/mylift";
 
 const CONFETTI_COLORS = ["#FC4C02", "#FF6B2C", "#FFC233", "#2FD27D", "#5CC8FF", "#FFDB66"];
@@ -71,26 +72,21 @@ function Reveal({ visible, delay = 0, style, children }: { visible: boolean; del
   return <Animated.View style={[style, a]}>{children}</Animated.View>;
 }
 
-/* Mascotte : VISIBLE dès le premier frame (opacité pleine, aucun fondu
-   retardé) — seul un léger pop de scale + respiration douce anime l'entrée.
-   Image parfaitement concentrique au halo (même boîte carrée centrée). */
+/* Mascotte : image inlinée en data-URI → présente dès le 1er frame (aucun
+   fetch, aucun fondu). Centrée sur son centre de masse dans un carré ; halo
+   concentrique. Respiration douce uniquement (aucune "arrivée" en scale). */
 const MASCOT_BOX = 176;
 function Mascot({ glow }: { glow: string }) {
-  const pop = useSharedValue(0.82);
   const breathe = useSharedValue(0);
   useEffect(() => {
-    pop.value = withSpring(1, { damping: 9, stiffness: 190 });
-    breathe.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.sin) }), -1, true);
+    breathe.value = withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, []);
-  const a = useAnimatedStyle(() => ({
-    transform: [{ scale: pop.value * (1 + breathe.value * 0.025) }],
-  }));
+  const a = useAnimatedStyle(() => ({ transform: [{ scale: 1 + breathe.value * 0.03 }] }));
   return (
     <View style={{ width: MASCOT_BOX, height: MASCOT_BOX, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-      {/* halo concentrique */}
       <View style={{ position: "absolute", width: MASCOT_BOX, height: MASCOT_BOX, borderRadius: MASCOT_BOX / 2, backgroundColor: glow, opacity: 0.3 }} />
-      <Animated.View style={[{ width: MASCOT_BOX, height: MASCOT_BOX, alignItems: "center", justifyContent: "center" }, a]}>
-        <Image source={require("../../assets/mascot.png")} style={{ width: MASCOT_BOX, height: MASCOT_BOX }} resizeMode="contain" fadeDuration={0} />
+      <Animated.View style={a}>
+        <Image source={{ uri: MASCOT_URI }} style={{ width: MASCOT_BOX, height: MASCOT_BOX }} resizeMode="contain" fadeDuration={0} />
       </Animated.View>
     </View>
   );
