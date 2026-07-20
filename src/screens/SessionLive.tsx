@@ -7,7 +7,7 @@
 //  - PRs calculés à la validation d'UNE série (computePRsForSet) et à la
 //    finalisation (computePRs) — sémantique poids brut, PAS e1RM
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Modal, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -785,6 +785,12 @@ export default function SessionLive({
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg0 }}>
+      {/* Préchargement de la mascotte : montée dès l'écran de séance (invisible)
+          → le PNG est fetché/décodé et mis en cache RN bien avant tout PR, donc
+          l'overlay l'affiche INSTANTANÉMENT (fini le délai d'~1 s en dev où
+          l'asset se télécharge depuis Metro au 1er rendu). */}
+      <Image source={require("../../assets/mascot.png")} style={{ position: "absolute", width: 1, height: 1, opacity: 0 }} fadeDuration={0} />
+
       <LWBOverlay
         pr={lwbPR}
         onClose={() => {
